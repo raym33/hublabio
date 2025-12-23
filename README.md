@@ -703,10 +703,11 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] TCP congestion control (RFC 6298)
 - [x] ELF relocations and dynamic linking
 - [x] Block cache with LRU eviction
+- [x] SMP multi-core support
+- [x] Full ext4 read/write with journaling
 
 ### In Progress
 - [ ] Real hardware testing on Raspberry Pi
-- [ ] Full ext4 write support
 
 ### Planned
 - [ ] GUI compositor
@@ -774,7 +775,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | **USB HCD** | Complete | ~500 | DWC2 (Pi), XHCI (USB 3.0) |
 | **Power Management** | Complete | ~350 | CPU governors, sleep states |
 | **FAT32 Driver** | Complete | ~400 | Read/write, cluster chain, 8.3 names |
-| **ext4 Driver** | Complete | ~350 | Read-only, inode parsing |
+| **ext4 Driver** | Complete | ~2,100 | Full read/write with journaling |
 | **RAM Filesystem** | Complete | ~200 | In-memory storage for /tmp |
 | **Block Device Layer** | Complete | ~350 | MBR/GPT partitions, device registry |
 | **Signal Handling** | Complete | ~400 | POSIX signals, signal delivery, handlers |
@@ -793,7 +794,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | **Synchronization** | Complete | ~500 | Spinlocks, ticket locks, RW locks, barriers |
 | **IPI System** | Complete | ~200 | Inter-processor interrupts, TLB shootdown |
 
-**Total: ~45,000+ lines of Rust kernel code**
+**Total: ~47,000+ lines of Rust kernel code**
 
 ### System Components Status
 
@@ -807,7 +808,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | WiFi | **Complete** | BCM43xx driver, WPA2 support |
 | DNS/ARP | **Complete** | Name resolution, address mapping |
 | USB | **Complete** | Host controllers, device drivers |
-| Filesystem | **Complete** | FAT32, ext4 (read), ramfs |
+| Filesystem | **Complete** | FAT32, ext4 (full r/w + journal), ramfs |
 | Block Devices | **Complete** | MBR/GPT partitions, RamDisk |
 | Power Management | **Complete** | CPU scaling, sleep states |
 | Signals | **Complete** | POSIX signal handling, delivery |
@@ -841,7 +842,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - USB device enumeration and hub support
 - Power management with CPU governors
 - FAT32 filesystem with read/write support
-- ext4 filesystem with read support
+- ext4 filesystem with full read/write and journaling
 - RAM filesystem for temporary storage
 - Block device layer with MBR/GPT partition support
 - POSIX signal handling (SIGTERM, SIGKILL, SIGINT, etc.)
@@ -861,7 +862,6 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **What doesn't work yet:**
 - Real hardware boot (needs testing on actual Pi)
-- Full ext4 write support
 - GUI compositor
 - Voice interface
 

@@ -884,9 +884,8 @@ aarch64-none-elf-gdb target/aarch64-unknown-none/release/hublabio-kernel
 ### Current Limitations
 
 1. **Hardware Testing**: Only verified in QEMU (real Pi testing pending)
-2. **ext4 Write**: Read-only ext4 support (FAT32 has full read/write)
-3. **GUI**: TUI only, no graphical compositor yet
-4. **Voice**: Voice interface not implemented yet
+2. **GUI**: TUI only, no graphical compositor yet
+3. **Voice**: Voice interface not implemented yet
 
 ### Performance Limitations
 
@@ -900,7 +899,7 @@ aarch64-none-elf-gdb target/aarch64-unknown-none/release/hublabio-kernel
 1. **ARM64 Primary**: Full ARM64 support, RISC-V in development
 2. **Networking**: Full TCP/IP stack with WiFi support
 3. **USB**: Host controllers implemented (DWC2, XHCI)
-4. **Storage**: FAT32, ext4 (read), ramfs supported
+4. **Storage**: FAT32, ext4 (full read/write + journaling), ramfs supported
 
 ---
 
