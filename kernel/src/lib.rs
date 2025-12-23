@@ -15,11 +15,12 @@ pub mod arch;
 pub mod boot;
 pub mod console;
 pub mod drivers;
+pub mod init;
+pub mod ipc;
 pub mod memory;
 pub mod process;
 pub mod scheduler;
 pub mod syscall;
-pub mod ipc;
 pub mod vfs;
 
 use core::panic::PanicInfo;
@@ -105,7 +106,8 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     kprintln!();
 
     // Validate boot info
-    if boot_info.magic != 0xHUBLAB10_u64 {
+    const BOOT_MAGIC: u64 = 0x4855424C_41423130; // "HUBLAB10" in hex
+    if boot_info.magic != BOOT_MAGIC {
         panic!("Invalid boot info magic number");
     }
 
