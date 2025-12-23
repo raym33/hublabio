@@ -40,6 +40,6 @@ models/
 *.iso
 *.dmg
 
-# Core dumps
-core
+# Core dumps (not apps/core directory)
+/core
 *.core
