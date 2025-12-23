@@ -682,11 +682,15 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] AI runtime (GGML inference)
 - [x] TUI shell
 - [x] Basic apps (files, terminal, settings)
+- [x] Network stack (Ethernet, TCP/IP, UDP, DHCP)
+- [x] Persistent storage (FAT32, ext4, ramfs)
+- [x] BSD-style socket API
+- [x] Block device layer with partition support
 
 ### In Progress
 - [ ] Real hardware testing on Raspberry Pi
-- [ ] Persistent storage (ext4, FAT32)
-- [ ] Network stack (Ethernet, WiFi)
+- [ ] WiFi driver implementation
+- [ ] Full ext4 write support
 
 ### Planned
 - [ ] GUI compositor
@@ -745,8 +749,14 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | **Boot Module** | Complete | ~400 | Platform detection, hardware init |
 | **Exception Handling** | Complete | ~200 | IRQ, SVC, data abort handlers |
 | **MMU** | Complete | ~250 | 4-level page tables for ARM64 |
+| **Network Stack** | Complete | ~1,200 | TCP/IP, UDP, DHCP, sockets |
+| **Ethernet Driver** | Complete | ~350 | BCM GENET for Pi 4, generic support |
+| **FAT32 Driver** | Complete | ~400 | Read/write, cluster chain, 8.3 names |
+| **ext4 Driver** | Complete | ~350 | Read-only, inode parsing |
+| **RAM Filesystem** | Complete | ~200 | In-memory storage for /tmp |
+| **Block Device Layer** | Complete | ~350 | MBR/GPT partitions, device registry |
 
-**Total: ~6,000+ lines of Rust kernel code**
+**Total: ~9,000+ lines of Rust kernel code**
 
 ### System Components Status
 
@@ -756,6 +766,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | Kernel Core | **Complete** | Process, memory, IPC, VFS, scheduler |
 | AI Scheduler | Complete | Heuristic + neural network prediction hooks |
 | AI Runtime | Working | GGUF loading, inference |
+| Network Stack | **Complete** | Full TCP/IP, UDP, DHCP, socket API |
+| Filesystem | **Complete** | FAT32, ext4 (read), ramfs |
+| Block Devices | **Complete** | MBR/GPT partitions, RamDisk |
 | Shell (TUI) | Working | Basic commands, themes |
 | Shell (Voice) | Not started | Planned for future |
 | Real Hardware | Ready to test | Drivers for Pi 3/4/5 implemented |
@@ -770,12 +783,19 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - AI-enhanced scheduler with neural network hooks
 - Init system with service dependencies
 - Hardware drivers for Raspberry Pi family
+- Full TCP/IP network stack with BSD socket API
+- Ethernet driver (BCM GENET for Raspberry Pi 4)
+- DHCP client for automatic IP configuration
+- FAT32 filesystem with read/write support
+- ext4 filesystem with read support
+- RAM filesystem for temporary storage
+- Block device layer with MBR/GPT partition support
 - Boot in QEMU emulator
 
 **What doesn't work yet:**
 - Real hardware boot (needs testing on actual Pi)
-- Persistent storage (ext4, FAT32)
-- Networking stack
+- WiFi driver (framework ready)
+- Full ext4 write support
 - GUI compositor
 - Voice interface
 
