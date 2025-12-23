@@ -3,12 +3,15 @@
 //! Minimal network stack for HubLab IO.
 //! Supports Ethernet, TCP/IP, and basic protocols.
 
+pub mod arp;
+pub mod dhcp;
+pub mod dns;
 pub mod ethernet;
 pub mod ip;
+pub mod socket;
 pub mod tcp;
 pub mod udp;
-pub mod socket;
-pub mod dhcp;
+pub mod wifi;
 
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -233,8 +236,14 @@ pub enum NetError {
     AddrNotAvailable,
     NetworkUnreachable,
     HostUnreachable,
+    HostNotFound,
     BufferTooSmall,
     InvalidPacket,
+    InvalidData,
+    InvalidState,
+    NotConnected,
+    NotConfigured,
+    NoDevice,
     Io,
 }
 
@@ -261,6 +270,12 @@ pub fn init() {
         });
         let _ = lo.up();
     }
+    drop(interfaces);
+
+    // Initialize sub-protocols
+    arp::init();
+    dns::init();
+    wifi::init();
 
     crate::kprintln!("  Network stack initialized");
 }

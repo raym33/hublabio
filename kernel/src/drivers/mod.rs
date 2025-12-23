@@ -6,10 +6,14 @@ pub mod uart;
 pub mod gpio;
 pub mod framebuffer;
 pub mod dtb;
+pub mod usb;
+pub mod power;
 
 /// Initialize all drivers
 pub fn init() {
     crate::kprintln!("  Initializing drivers...");
+    usb::init();
+    power::init();
 }
 
 /// Driver trait that all drivers implement
