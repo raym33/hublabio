@@ -12,9 +12,13 @@
 extern crate alloc;
 
 pub mod arch;
+pub mod aslr;
 pub mod auth;
 pub mod boot;
+pub mod capability;
+pub mod cgroup;
 pub mod console;
+pub mod cow;
 pub mod dev;
 pub mod drivers;
 pub mod exec;
@@ -23,17 +27,23 @@ pub mod fs;
 pub mod init;
 pub mod ipc;
 pub mod memory;
+pub mod namespace;
 pub mod net;
+pub mod netfilter;
+pub mod oom;
+pub mod pagefault;
 pub mod pipe;
 pub mod process;
 pub mod procfs;
 pub mod scheduler;
+pub mod seccomp;
 pub mod signal;
 pub mod syscall;
 pub mod time;
 pub mod tty;
 pub mod vfs;
 pub mod waitqueue;
+pub mod watchdog;
 
 use core::panic::PanicInfo;
 use alloc::alloc::{GlobalAlloc, Layout};
@@ -222,6 +232,28 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Initialize file locking
     kprintln!("[BOOT] Setting up file locking...");
     flock::init();
+
+    // Initialize security subsystems
+    kprintln!("[BOOT] Initializing security subsystems...");
+    capability::init();
+    seccomp::init();
+    namespace::init();
+    cgroup::init();
+
+    // Initialize memory management
+    kprintln!("[BOOT] Setting up advanced memory management...");
+    aslr::init();
+    cow::init();
+    pagefault::init();
+    oom::init();
+
+    // Initialize networking security
+    kprintln!("[BOOT] Setting up netfilter...");
+    netfilter::init();
+
+    // Initialize watchdog
+    kprintln!("[BOOT] Initializing watchdog...");
+    watchdog::init();
 
     // Initialize hardware drivers
     kprintln!("[BOOT] Initializing hardware drivers...");
