@@ -473,7 +473,7 @@ fn sys_getppid() -> SyscallResult {
 
 fn sys_kill(pid: u64, signal: i32) -> SyscallResult {
     if let Ok(sig) = Signal::try_from(signal as u8) {
-        match crate::signal::send_signal(Pid(pid), sig) {
+        match crate::signal::send(Pid(pid), sig) {
             Ok(()) => errno::SUCCESS,
             Err(_) => errno::ESRCH,
         }

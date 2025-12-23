@@ -35,6 +35,7 @@ pub mod net;
 pub mod netfilter;
 pub mod oom;
 pub mod pagefault;
+pub mod panic;
 pub mod pipe;
 pub mod process;
 pub mod procfs;
@@ -296,6 +297,10 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     kprintln!("[BOOT] Initializing core dump support...");
     coredump::init();
 
+    // Initialize panic handler with symbol table
+    kprintln!("[BOOT] Initializing panic handler...");
+    panic::init();
+
     // Initialize task subsystem
     kprintln!("[BOOT] Initializing task subsystem...");
     task::init();
@@ -319,18 +324,7 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
 /// Panic handler
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    kprintln!();
-    kprintln!("!!! KERNEL PANIC !!!");
-    kprintln!("{}", info);
-    kprintln!();
-
-    // Try to dump registers and backtrace
-    arch::dump_state();
-
-    // Halt the system
-    loop {
-        arch::halt();
-    }
+    panic::handle_panic(info)
 }
 
 /// Allocation error handler

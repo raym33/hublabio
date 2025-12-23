@@ -7,6 +7,7 @@ pub mod arp;
 pub mod dhcp;
 pub mod dns;
 pub mod ethernet;
+pub mod icmp;
 pub mod ip;
 pub mod socket;
 pub mod tcp;
@@ -274,6 +275,8 @@ pub fn init() {
 
     // Initialize sub-protocols
     arp::init();
+    icmp::init();
+    tcp::init();
     dns::init();
     wifi::init();
 

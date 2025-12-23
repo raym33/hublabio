@@ -139,7 +139,35 @@ struct TcpConnection {
     send_window: u16,    // Send window size
     send_buffer: VecDeque<u8>,
     recv_buffer: VecDeque<u8>,
+    // Retransmission
+    rto: u64,            // Retransmission timeout (ms)
+    srtt: u64,           // Smoothed RTT
+    rttvar: u64,         // RTT variance
+    retries: u32,        // Retransmission count
+    last_sent: u64,      // Time of last send
+    // Congestion control
+    cwnd: u32,           // Congestion window
+    ssthresh: u32,       // Slow start threshold
+    // Statistics
+    bytes_sent: u64,
+    bytes_received: u64,
+    retransmits: u64,
 }
+
+/// Initial RTO (1 second)
+const INITIAL_RTO: u64 = 1000;
+/// Minimum RTO (200ms)
+const MIN_RTO: u64 = 200;
+/// Maximum RTO (120 seconds)
+const MAX_RTO: u64 = 120_000;
+/// Maximum retries before giving up
+const MAX_RETRIES: u32 = 15;
+/// Initial congestion window (MSS * 10)
+const INITIAL_CWND: u32 = 14600;
+/// Initial slow start threshold
+const INITIAL_SSTHRESH: u32 = 65535;
+/// Maximum segment size
+const MSS: u32 = 1460;
 
 impl TcpConnection {
     fn new(local: SocketAddr, remote: SocketAddr) -> Self {
@@ -154,7 +182,83 @@ impl TcpConnection {
             send_window: 65535,
             send_buffer: VecDeque::new(),
             recv_buffer: VecDeque::new(),
+            rto: INITIAL_RTO,
+            srtt: 0,
+            rttvar: 0,
+            retries: 0,
+            last_sent: 0,
+            cwnd: INITIAL_CWND,
+            ssthresh: INITIAL_SSTHRESH,
+            bytes_sent: 0,
+            bytes_received: 0,
+            retransmits: 0,
         }
+    }
+
+    /// Update RTT measurements (RFC 6298)
+    fn update_rtt(&mut self, measured_rtt: u64) {
+        if self.srtt == 0 {
+            // First measurement
+            self.srtt = measured_rtt;
+            self.rttvar = measured_rtt / 2;
+        } else {
+            // Subsequent measurements
+            // RTTVAR = (1 - beta) * RTTVAR + beta * |SRTT - R'|
+            // where beta = 1/4
+            let diff = if self.srtt > measured_rtt {
+                self.srtt - measured_rtt
+            } else {
+                measured_rtt - self.srtt
+            };
+            self.rttvar = (3 * self.rttvar + diff) / 4;
+
+            // SRTT = (1 - alpha) * SRTT + alpha * R'
+            // where alpha = 1/8
+            self.srtt = (7 * self.srtt + measured_rtt) / 8;
+        }
+
+        // RTO = SRTT + max(G, K * RTTVAR)
+        // where K = 4, G = clock granularity (1ms)
+        self.rto = self.srtt + (4 * self.rttvar).max(1);
+        self.rto = self.rto.clamp(MIN_RTO, MAX_RTO);
+    }
+
+    /// Handle retransmission timeout
+    fn on_timeout(&mut self) {
+        self.retries += 1;
+        self.retransmits += 1;
+
+        // Exponential backoff
+        self.rto = (self.rto * 2).min(MAX_RTO);
+
+        // Congestion control: reduce ssthresh and cwnd
+        self.ssthresh = (self.cwnd / 2).max(2 * MSS);
+        self.cwnd = MSS;
+    }
+
+    /// Handle successful ACK (congestion control)
+    fn on_ack(&mut self, acked_bytes: u32) {
+        self.retries = 0;
+
+        if self.cwnd < self.ssthresh {
+            // Slow start: increase cwnd by 1 MSS per ACK
+            self.cwnd += MSS;
+        } else {
+            // Congestion avoidance: increase cwnd by MSS * MSS / cwnd per ACK
+            self.cwnd += (MSS * MSS) / self.cwnd;
+        }
+    }
+
+    /// Handle triple duplicate ACK (fast retransmit)
+    fn on_triple_dup_ack(&mut self) {
+        // Fast retransmit/fast recovery
+        self.ssthresh = (self.cwnd / 2).max(2 * MSS);
+        self.cwnd = self.ssthresh + 3 * MSS;
+    }
+
+    /// Get effective window size
+    fn effective_window(&self) -> u32 {
+        (self.send_window as u32).min(self.cwnd)
     }
 }
 
@@ -509,4 +613,115 @@ impl core::fmt::Display for SocketAddr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}:{}", self.ip, self.port)
     }
+}
+
+/// TCP statistics
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TcpStats {
+    pub connections_active: u64,
+    pub connections_passive: u64,
+    pub connections_established: u64,
+    pub connections_reset: u64,
+    pub segments_sent: u64,
+    pub segments_received: u64,
+    pub retransmits: u64,
+    pub errors: u64,
+}
+
+static TCP_STATS: Mutex<TcpStats> = Mutex::new(TcpStats {
+    connections_active: 0,
+    connections_passive: 0,
+    connections_established: 0,
+    connections_reset: 0,
+    segments_sent: 0,
+    segments_received: 0,
+    retransmits: 0,
+    errors: 0,
+});
+
+/// Get TCP statistics
+pub fn get_stats() -> TcpStats {
+    *TCP_STATS.lock()
+}
+
+/// Get connection count
+pub fn connection_count() -> usize {
+    CONNECTIONS.lock().len()
+}
+
+/// Get connection state by key
+pub fn get_state(key: &ConnectionKey) -> Option<TcpState> {
+    CONNECTIONS.lock().get(key).map(|c| c.state)
+}
+
+/// Timer tick for TCP (called periodically)
+pub fn timer_tick(current_time_ms: u64) {
+    let mut connections = CONNECTIONS.lock();
+    let mut to_remove = Vec::new();
+
+    for (key, conn) in connections.iter_mut() {
+        // Check for timeout in states that expect responses
+        match conn.state {
+            TcpState::SynSent | TcpState::SynReceived => {
+                if conn.retries >= MAX_RETRIES {
+                    // Connection timeout
+                    to_remove.push(*key);
+                    TCP_STATS.lock().errors += 1;
+                } else if current_time_ms.saturating_sub(conn.last_sent) > conn.rto {
+                    // Retransmit SYN
+                    conn.on_timeout();
+                    let _ = send_segment(
+                        conn.local,
+                        conn.remote,
+                        conn.send_next - 1, // Resend with same seq
+                        conn.recv_next,
+                        if conn.state == TcpState::SynSent {
+                            flags::SYN
+                        } else {
+                            flags::SYN | flags::ACK
+                        },
+                        &[],
+                    );
+                    conn.last_sent = current_time_ms;
+                    TCP_STATS.lock().retransmits += 1;
+                }
+            }
+            TcpState::Established => {
+                // Check for data retransmission
+                if conn.send_unack < conn.send_next {
+                    if conn.retries >= MAX_RETRIES {
+                        // Connection failed
+                        conn.state = TcpState::Closed;
+                        to_remove.push(*key);
+                        TCP_STATS.lock().errors += 1;
+                    } else if current_time_ms.saturating_sub(conn.last_sent) > conn.rto {
+                        // Would retransmit unacknowledged data here
+                        conn.on_timeout();
+                        conn.last_sent = current_time_ms;
+                        TCP_STATS.lock().retransmits += 1;
+                    }
+                }
+            }
+            TcpState::TimeWait => {
+                // Clean up after 2*MSL (using 2 minutes)
+                if current_time_ms.saturating_sub(conn.last_sent) > 120_000 {
+                    to_remove.push(*key);
+                }
+            }
+            TcpState::Closed => {
+                to_remove.push(*key);
+            }
+            _ => {}
+        }
+    }
+
+    // Remove closed/failed connections
+    for key in to_remove {
+        connections.remove(&key);
+    }
+}
+
+/// Initialize TCP subsystem
+pub fn init() {
+    crate::kprintln!("  TCP protocol initialized");
 }

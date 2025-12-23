@@ -250,8 +250,7 @@ pub fn receive(data: &[u8]) -> Result<(), NetError> {
     // Dispatch to upper layer
     match header.protocol {
         protocol::ICMP => {
-            // Handle ICMP
-            handle_icmp(&header, payload)?;
+            super::icmp::receive(&header, payload)?;
         }
         protocol::TCP => {
             super::tcp::receive(&header, payload)?;
@@ -261,46 +260,6 @@ pub fn receive(data: &[u8]) -> Result<(), NetError> {
         }
         _ => {
             crate::kdebug!("Unknown IP protocol: {}", header.protocol);
-        }
-    }
-
-    Ok(())
-}
-
-/// Handle ICMP packet (ping)
-fn handle_icmp(ip_header: &Ipv4Header, data: &[u8]) -> Result<(), NetError> {
-    if data.len() < 8 {
-        return Err(NetError::InvalidPacket);
-    }
-
-    let icmp_type = data[0];
-    let icmp_code = data[1];
-
-    match (icmp_type, icmp_code) {
-        (8, 0) => {
-            // Echo request (ping)
-            crate::kdebug!("ICMP Echo Request from {}", ip_header.source());
-
-            // Build echo reply
-            let mut reply = data.to_vec();
-            reply[0] = 0; // Echo Reply
-
-            // Recalculate ICMP checksum
-            reply[2] = 0;
-            reply[3] = 0;
-            let checksum = calculate_checksum(&reply);
-            reply[2] = (checksum >> 8) as u8;
-            reply[3] = (checksum & 0xFF) as u8;
-
-            // Send reply
-            send(ip_header.source(), protocol::ICMP, &reply)?;
-        }
-        (0, 0) => {
-            // Echo reply
-            crate::kdebug!("ICMP Echo Reply from {}", ip_header.source());
-        }
-        _ => {
-            crate::kdebug!("ICMP type={} code={}", icmp_type, icmp_code);
         }
     }
 

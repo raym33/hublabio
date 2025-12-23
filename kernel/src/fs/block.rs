@@ -115,26 +115,54 @@ impl BlockDevice for RamDisk {
     }
 }
 
-/// SD/MMC card block device
-pub struct SdCard {
-    base: usize,
+/// SD/MMC card block device wrapper
+/// Connects the sdmmc driver to the block device abstraction
+pub struct SdCardBlock {
+    controller_id: u32,
     block_size: usize,
     total_blocks: u64,
 }
 
-impl SdCard {
-    /// SD card controller base address (BCM2711)
+impl SdCardBlock {
+    /// SD card controller base address (BCM2711 - Raspberry Pi 4)
     pub const BASE_BCM2711: usize = 0xFE340000;
 
-    /// Create SD card device
+    /// SD card controller base address (QEMU virt)
+    pub const BASE_QEMU: usize = 0x0900_0000;
+
+    /// Create SD card block device from existing controller
+    pub fn from_controller(controller_id: u32) -> Result<Self, VfsError> {
+        // Get card info from controller
+        let (_, total_sectors, _) = crate::drivers::sdmmc::get_card_info(controller_id)
+            .ok_or(VfsError::IoError)?;
+
+        Ok(Self {
+            controller_id,
+            block_size: 512,
+            total_blocks: total_sectors,
+        })
+    }
+
+    /// Initialize SD card at given base address
     pub fn new(base: usize) -> Result<Self, VfsError> {
-        // Would initialize SD card controller
-        // For now, return error since not implemented
-        Err(VfsError::NotSupported)
+        // Register controller
+        let controller_id = crate::drivers::sdmmc::register_controller(base)
+            .map_err(|_| VfsError::IoError)?;
+
+        // Detect card
+        crate::drivers::sdmmc::detect_card(controller_id)
+            .map_err(|_| VfsError::IoError)?;
+
+        Self::from_controller(controller_id)
+    }
+
+    /// Get the underlying controller ID
+    pub fn controller_id(&self) -> u32 {
+        self.controller_id
     }
 }
 
-impl BlockDevice for SdCard {
+impl BlockDevice for SdCardBlock {
     fn block_size(&self) -> usize {
         self.block_size
     }
@@ -144,17 +172,65 @@ impl BlockDevice for SdCard {
     }
 
     fn read_block(&self, block: u64, buf: &mut [u8]) -> Result<(), VfsError> {
-        // Would send CMD17 (READ_SINGLE_BLOCK)
-        Err(VfsError::NotSupported)
+        if block >= self.total_blocks {
+            return Err(VfsError::IoError);
+        }
+
+        if buf.len() < self.block_size {
+            return Err(VfsError::IoError);
+        }
+
+        crate::drivers::sdmmc::read_sectors(self.controller_id, block, 1, buf)
+            .map_err(|_| VfsError::IoError)
     }
 
     fn write_block(&self, block: u64, buf: &[u8]) -> Result<(), VfsError> {
-        // Would send CMD24 (WRITE_BLOCK)
-        Err(VfsError::NotSupported)
+        if block >= self.total_blocks {
+            return Err(VfsError::IoError);
+        }
+
+        if buf.len() < self.block_size {
+            return Err(VfsError::IoError);
+        }
+
+        crate::drivers::sdmmc::write_sectors(self.controller_id, block, 1, buf)
+            .map_err(|_| VfsError::IoError)
     }
 
     fn sync(&self) -> Result<(), VfsError> {
+        // SD card writes are synchronous
         Ok(())
+    }
+}
+
+/// Read multiple blocks efficiently
+impl SdCardBlock {
+    /// Read multiple blocks at once
+    pub fn read_blocks(&self, start_block: u64, count: u32, buf: &mut [u8]) -> Result<(), VfsError> {
+        if start_block + count as u64 > self.total_blocks {
+            return Err(VfsError::IoError);
+        }
+
+        if buf.len() < (count as usize * self.block_size) {
+            return Err(VfsError::IoError);
+        }
+
+        crate::drivers::sdmmc::read_sectors(self.controller_id, start_block, count, buf)
+            .map_err(|_| VfsError::IoError)
+    }
+
+    /// Write multiple blocks at once
+    pub fn write_blocks(&self, start_block: u64, count: u32, buf: &[u8]) -> Result<(), VfsError> {
+        if start_block + count as u64 > self.total_blocks {
+            return Err(VfsError::IoError);
+        }
+
+        if buf.len() < (count as usize * self.block_size) {
+            return Err(VfsError::IoError);
+        }
+
+        crate::drivers::sdmmc::write_sectors(self.controller_id, start_block, count, buf)
+            .map_err(|_| VfsError::IoError)
     }
 }
 
@@ -344,6 +420,352 @@ pub fn parse_gpt(device: &dyn BlockDevice) -> Result<Vec<Partition>, VfsError> {
     Ok(partitions)
 }
 
+// ============================================================================
+// Block Cache
+// ============================================================================
+
+/// Block cache entry
+struct CacheEntry {
+    /// Block number
+    block: u64,
+    /// Device name
+    device: String,
+    /// Data
+    data: Vec<u8>,
+    /// Is dirty (needs write-back)
+    dirty: bool,
+    /// Last access time (ticks)
+    last_access: u64,
+    /// Reference count
+    ref_count: u32,
+}
+
+/// Block cache
+pub struct BlockCache {
+    /// Cache entries
+    entries: Mutex<Vec<CacheEntry>>,
+    /// Maximum entries
+    max_entries: usize,
+    /// Statistics
+    hits: AtomicU64,
+    misses: AtomicU64,
+    writebacks: AtomicU64,
+}
+
+use core::sync::atomic::AtomicU64;
+
+impl BlockCache {
+    /// Create a new block cache
+    pub const fn new(max_entries: usize) -> Self {
+        Self {
+            entries: Mutex::new(Vec::new()),
+            max_entries,
+            hits: AtomicU64::new(0),
+            misses: AtomicU64::new(0),
+            writebacks: AtomicU64::new(0),
+        }
+    }
+
+    /// Read a block through the cache
+    pub fn read(
+        &self,
+        device_name: &str,
+        device: &dyn BlockDevice,
+        block: u64,
+        buf: &mut [u8],
+    ) -> Result<(), VfsError> {
+        let mut entries = self.entries.lock();
+
+        // Check cache
+        for entry in entries.iter_mut() {
+            if entry.device == device_name && entry.block == block {
+                // Cache hit
+                self.hits.fetch_add(1, Ordering::Relaxed);
+                buf[..entry.data.len()].copy_from_slice(&entry.data);
+                entry.last_access = get_ticks();
+                entry.ref_count += 1;
+                return Ok(());
+            }
+        }
+
+        // Cache miss
+        self.misses.fetch_add(1, Ordering::Relaxed);
+
+        // Read from device
+        device.read_block(block, buf)?;
+
+        // Add to cache
+        if entries.len() >= self.max_entries {
+            // Evict least recently used entry
+            self.evict_lru(&mut entries, device_name)?;
+        }
+
+        entries.push(CacheEntry {
+            block,
+            device: String::from(device_name),
+            data: buf.to_vec(),
+            dirty: false,
+            last_access: get_ticks(),
+            ref_count: 1,
+        });
+
+        Ok(())
+    }
+
+    /// Write a block through the cache
+    pub fn write(
+        &self,
+        device_name: &str,
+        device: &dyn BlockDevice,
+        block: u64,
+        buf: &[u8],
+        write_through: bool,
+    ) -> Result<(), VfsError> {
+        let mut entries = self.entries.lock();
+
+        // Check if block is in cache
+        for entry in entries.iter_mut() {
+            if entry.device == device_name && entry.block == block {
+                // Update cache entry
+                entry.data.clear();
+                entry.data.extend_from_slice(buf);
+                entry.last_access = get_ticks();
+                entry.dirty = !write_through;
+
+                if write_through {
+                    device.write_block(block, buf)?;
+                }
+
+                return Ok(());
+            }
+        }
+
+        // Not in cache - add it
+        if entries.len() >= self.max_entries {
+            self.evict_lru(&mut entries, device_name)?;
+        }
+
+        if write_through {
+            device.write_block(block, buf)?;
+        }
+
+        entries.push(CacheEntry {
+            block,
+            device: String::from(device_name),
+            data: buf.to_vec(),
+            dirty: !write_through,
+            last_access: get_ticks(),
+            ref_count: 1,
+        });
+
+        Ok(())
+    }
+
+    /// Sync all dirty blocks to disk
+    pub fn sync(&self, device_name: &str, device: &dyn BlockDevice) -> Result<(), VfsError> {
+        let mut entries = self.entries.lock();
+
+        for entry in entries.iter_mut() {
+            if entry.device == device_name && entry.dirty {
+                device.write_block(entry.block, &entry.data)?;
+                entry.dirty = false;
+                self.writebacks.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        device.sync()
+    }
+
+    /// Sync all devices
+    pub fn sync_all(&self) -> Result<(), VfsError> {
+        let devices_list: Vec<String> = list();
+
+        for name in devices_list {
+            if let Some(device) = get(&name) {
+                self.sync(&name, device.as_ref())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Evict least recently used entry
+    fn evict_lru(&self, entries: &mut Vec<CacheEntry>, device_name: &str) -> Result<(), VfsError> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+
+        // Find LRU entry
+        let mut lru_idx = 0;
+        let mut lru_time = u64::MAX;
+
+        for (i, entry) in entries.iter().enumerate() {
+            if entry.ref_count == 0 && entry.last_access < lru_time {
+                lru_time = entry.last_access;
+                lru_idx = i;
+            }
+        }
+
+        // Write back if dirty
+        let entry = &entries[lru_idx];
+        if entry.dirty {
+            if let Some(device) = get(&entry.device) {
+                device.write_block(entry.block, &entry.data)?;
+                self.writebacks.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        entries.remove(lru_idx);
+        Ok(())
+    }
+
+    /// Invalidate cache entries for a device
+    pub fn invalidate(&self, device_name: &str) {
+        let mut entries = self.entries.lock();
+        entries.retain(|e| e.device != device_name);
+    }
+
+    /// Get cache statistics
+    pub fn stats(&self) -> (u64, u64, u64) {
+        (
+            self.hits.load(Ordering::Relaxed),
+            self.misses.load(Ordering::Relaxed),
+            self.writebacks.load(Ordering::Relaxed),
+        )
+    }
+}
+
+/// Global block cache
+static BLOCK_CACHE: BlockCache = BlockCache::new(256); // 256 blocks = 128KB with 512-byte blocks
+
+/// Get ticks for LRU tracking
+fn get_ticks() -> u64 {
+    // Use system tick counter
+    crate::time::monotonic_ns() / 1_000_000 // Convert to ms
+}
+
+/// Cached block read
+pub fn cached_read(device_name: &str, block: u64, buf: &mut [u8]) -> Result<(), VfsError> {
+    let device = get(device_name).ok_or(VfsError::NotFound)?;
+    BLOCK_CACHE.read(device_name, device.as_ref(), block, buf)
+}
+
+/// Cached block write
+pub fn cached_write(device_name: &str, block: u64, buf: &[u8]) -> Result<(), VfsError> {
+    let device = get(device_name).ok_or(VfsError::NotFound)?;
+    BLOCK_CACHE.write(device_name, device.as_ref(), block, buf, false)
+}
+
+/// Sync cached blocks
+pub fn sync_cache(device_name: &str) -> Result<(), VfsError> {
+    let device = get(device_name).ok_or(VfsError::NotFound)?;
+    BLOCK_CACHE.sync(device_name, device.as_ref())
+}
+
+/// Sync all cached blocks
+pub fn sync_all() -> Result<(), VfsError> {
+    BLOCK_CACHE.sync_all()
+}
+
+/// Get cache statistics
+pub fn cache_stats() -> (u64, u64, u64) {
+    BLOCK_CACHE.stats()
+}
+
+// ============================================================================
+// Partition Block Device
+// ============================================================================
+
+/// A partition view of a block device
+pub struct PartitionDevice {
+    /// Parent device name
+    parent_device: String,
+    /// Start LBA
+    start_lba: u64,
+    /// Number of sectors
+    sectors: u64,
+    /// Block size (inherited from parent)
+    block_size: usize,
+}
+
+impl PartitionDevice {
+    /// Create a partition device
+    pub fn new(parent_name: &str, start_lba: u64, sectors: u64) -> Result<Self, VfsError> {
+        let parent = get(parent_name).ok_or(VfsError::NotFound)?;
+
+        Ok(Self {
+            parent_device: String::from(parent_name),
+            start_lba,
+            sectors,
+            block_size: parent.block_size(),
+        })
+    }
+}
+
+impl BlockDevice for PartitionDevice {
+    fn block_size(&self) -> usize {
+        self.block_size
+    }
+
+    fn total_blocks(&self) -> u64 {
+        self.sectors
+    }
+
+    fn read_block(&self, block: u64, buf: &mut [u8]) -> Result<(), VfsError> {
+        if block >= self.sectors {
+            return Err(VfsError::IoError);
+        }
+
+        let parent = get(&self.parent_device).ok_or(VfsError::IoError)?;
+        parent.read_block(self.start_lba + block, buf)
+    }
+
+    fn write_block(&self, block: u64, buf: &[u8]) -> Result<(), VfsError> {
+        if block >= self.sectors {
+            return Err(VfsError::IoError);
+        }
+
+        let parent = get(&self.parent_device).ok_or(VfsError::IoError)?;
+        parent.write_block(self.start_lba + block, buf)
+    }
+
+    fn sync(&self) -> Result<(), VfsError> {
+        let parent = get(&self.parent_device).ok_or(VfsError::IoError)?;
+        parent.sync()
+    }
+}
+
+/// Probe and register partitions for a device
+pub fn probe_partitions(device_name: &str) -> Result<usize, VfsError> {
+    let device = get(device_name).ok_or(VfsError::NotFound)?;
+
+    // Try GPT first
+    let partitions = match parse_gpt(device.as_ref()) {
+        Ok(parts) => parts,
+        Err(_) => {
+            // Fall back to MBR
+            parse_mbr(device.as_ref())?
+        }
+    };
+
+    let count = partitions.len();
+
+    for part in partitions {
+        let part_name = alloc::format!("{}p{}", device_name, part.number);
+        let part_dev = Arc::new(PartitionDevice::new(
+            device_name,
+            part.start_lba,
+            part.size_sectors,
+        )?);
+
+        register(&part_name, part_dev);
+        crate::kinfo!("  Partition {}: {} sectors starting at LBA {}",
+                     part_name, part.size_sectors, part.start_lba);
+    }
+
+    Ok(count)
+}
+
 /// Initialize block device subsystem
 pub fn init() {
     // Create a small RAM disk for testing
@@ -351,4 +773,5 @@ pub fn init() {
     register("ram0", ramdisk);
 
     crate::kprintln!("  Block device layer initialized");
+    crate::kprintln!("  Block cache: {} entries", 256);
 }

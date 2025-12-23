@@ -604,3 +604,189 @@ pub fn stats() -> (u64, u64) {
 pub fn init() {
     crate::kprintln!("  Signal subsystem initialized");
 }
+
+// ============================================================================
+// Syscall Interface Helpers
+// ============================================================================
+
+impl TryFrom<u8> for Signal {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Signal::from_num(value).ok_or("Invalid signal number")
+    }
+}
+
+/// Send signal (simplified interface for syscall)
+pub fn send(pid: crate::process::Pid, sig: Signal) -> Result<(), &'static str> {
+    let sender = crate::scheduler::current_pid().0 as u32;
+    send_signal(pid.0 as u32, sig, sender)
+}
+
+/// Get handler for signal
+pub fn get_handler(sig: Signal) -> Option<SignalAction> {
+    let task = crate::task::current()?;
+
+    // This would read from the process's signal state
+    // For now, return Default
+    Some(SignalAction::Default)
+}
+
+/// Set handler for signal
+pub fn set_handler(sig: Signal, action: SignalAction) {
+    if let Some(task) = crate::task::current() {
+        // This would modify the process's signal state
+        crate::kdebug!("Set handler for {:?} to {:?}", sig, action);
+    }
+}
+
+/// Process any pending signals for current task
+pub fn process_pending_signals() {
+    if let Some(task) = crate::task::current() {
+        let pid = task.process.pid.0 as u32;
+
+        // Check for pending signals
+        let mut queues = SIGNAL_QUEUES.lock();
+        if let Some(pending) = queues.get_mut(&pid) {
+            // Create a default state for checking
+            let mut state = SignalState::default();
+
+            // Get process's blocked mask
+            // state.blocked = task.process.signal_state.lock().blocked;
+
+            // Process signals
+            while let Some(info) = pending.next(&state.blocked) {
+                match info.signal {
+                    Signal::SIGKILL => {
+                        task.process.exit(-9);
+                        return;
+                    }
+                    Signal::SIGSTOP => {
+                        task.process.set_state(crate::process::ProcessState::Stopped);
+                        crate::scheduler::schedule();
+                    }
+                    Signal::SIGCONT => {
+                        if let crate::process::ProcessState::Stopped = task.process.get_state() {
+                            task.process.set_state(crate::process::ProcessState::Ready);
+                        }
+                    }
+                    sig if sig.terminates() => {
+                        if sig.core_dumps() {
+                            crate::coredump::generate(&task.process, sig);
+                        }
+                        task.process.exit(-(sig.as_num() as i32));
+                        return;
+                    }
+                    _ => {
+                        // Ignored by default or has custom handler
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Check if current process has pending signals
+pub fn has_pending_signals() -> bool {
+    if let Some(task) = crate::task::current() {
+        let pid = task.process.pid.0 as u32;
+        let queues = SIGNAL_QUEUES.lock();
+        if let Some(pending) = queues.get(&pid) {
+            return pending.any_pending();
+        }
+    }
+    false
+}
+
+/// Raise signal in current process (like raise() in libc)
+pub fn raise(sig: Signal) -> Result<(), &'static str> {
+    let pid = crate::scheduler::current_pid();
+    send(pid, sig)
+}
+
+/// Alarm timer handler
+static ALARM_TIMERS: Mutex<BTreeMap<u32, u64>> = Mutex::new(BTreeMap::new());
+
+/// Set alarm timer for current process
+pub fn alarm(seconds: u32) -> u32 {
+    let pid = crate::scheduler::current_pid().0 as u32;
+    let mut alarms = ALARM_TIMERS.lock();
+
+    let previous = alarms.get(&pid).copied().unwrap_or(0);
+
+    if seconds == 0 {
+        // Cancel alarm
+        alarms.remove(&pid);
+    } else {
+        // Set new alarm
+        let deadline = crate::time::system_time_secs() + seconds as u64;
+        alarms.insert(pid, deadline);
+    }
+
+    // Return remaining seconds from previous alarm
+    let now = crate::time::system_time_secs();
+    if previous > now {
+        (previous - now) as u32
+    } else {
+        0
+    }
+}
+
+/// Check and deliver alarm signals (called periodically)
+pub fn check_alarms() {
+    let now = crate::time::system_time_secs();
+    let mut alarms = ALARM_TIMERS.lock();
+    let mut expired = Vec::new();
+
+    for (&pid, &deadline) in alarms.iter() {
+        if now >= deadline {
+            expired.push(pid);
+        }
+    }
+
+    for pid in expired {
+        alarms.remove(&pid);
+        let _ = send_signal(pid, Signal::SIGALRM, 0);
+    }
+}
+
+/// Signal set operations
+impl core::ops::BitOr for SignalMask {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        SignalMask(self.0 | rhs.0)
+    }
+}
+
+impl core::ops::BitAnd for SignalMask {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        SignalMask(self.0 & rhs.0)
+    }
+}
+
+impl core::ops::Not for SignalMask {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        SignalMask(!self.0)
+    }
+}
+
+/// Create signal mask from signal
+impl From<Signal> for SignalMask {
+    fn from(sig: Signal) -> Self {
+        SignalMask(1 << sig.as_num())
+    }
+}
+
+/// Real-time signal support
+pub const SIGRTMIN: u8 = 32;
+pub const SIGRTMAX: u8 = 64;
+
+/// Check if signal is real-time
+pub fn is_realtime(signum: u8) -> bool {
+    signum >= SIGRTMIN && signum <= SIGRTMAX
+}
