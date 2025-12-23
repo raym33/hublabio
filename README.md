@@ -712,16 +712,58 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] TUI improvements (line editing, scrolling, input handling)
 - [x] Package Manager with repository support
 
+### Recently Completed
+- [x] MoE-R distributed experts (cluster discovery, P2P protocol, tensor parallelism)
+- [x] NPU acceleration (Hailo-8L, EdgeTPU, unified backend API)
+- [x] OTA updates (A/B partitioning, delta updates, rollback)
+- [x] Developer tools (debugger, profiler, tracer, inspector)
+- [x] Web browser (minimal HTML renderer, tabs, history)
+
 ### In Progress
-- [ ] Real hardware testing on Raspberry Pi
+- [ ] Real hardware testing on Raspberry Pi (see [HARDWARE_TESTING.md](docs/HARDWARE_TESTING.md))
 
 ### Planned
-- [ ] MoE-R distributed experts
-- [ ] NPU acceleration (RPi AI Kit)
 - [ ] Smartphone bootloader
 - [ ] App marketplace
-- [ ] OTA updates
-- [ ] Web browser
+
+---
+
+## Testing
+
+> **Status: Hardware testing not yet performed - help needed!**
+
+### Running Tests
+
+```bash
+# Unit tests (host)
+cargo test --workspace --lib
+
+# Build for Raspberry Pi
+make rpi5
+
+# Run in QEMU emulator
+make run
+```
+
+### Test Documentation
+
+| Document | Description |
+|----------|-------------|
+| [TESTING.md](docs/TESTING.md) | Complete testing guide, test categories, how to contribute |
+| [HARDWARE_TESTING.md](docs/HARDWARE_TESTING.md) | Hardware test procedures, SD card setup, serial console |
+
+### What Needs Testing
+
+- [ ] **Boot Test**: Verify kernel boots on real Raspberry Pi 5/4
+- [ ] **Peripheral Tests**: USB, HDMI, Ethernet, WiFi, GPIO
+- [ ] **AI Performance**: Benchmark inference speed
+- [ ] **NPU Acceleration**: Test with Raspberry Pi AI Kit (Hailo-8L)
+- [ ] **Distributed Inference**: Multi-device cluster testing
+
+### CI/CD
+
+GitHub Actions workflow is configured but builds may fail until test infrastructure is complete.
+See `.github/workflows/ci.yml` for pipeline configuration.
 
 ---
 
@@ -731,6 +773,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ### Areas of Interest
 
+- **Hardware testing** (highest priority!)
 - Kernel drivers for new hardware
 - AI model optimizations
 - New expert agents
@@ -872,9 +915,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - Boot in QEMU emulator
 
 **What doesn't work yet:**
-- Real hardware boot (needs testing on actual Pi)
-- MoE-R distributed experts (in development)
-- NPU acceleration
+- Real hardware boot (needs testing on actual Pi - see [HARDWARE_TESTING.md](docs/HARDWARE_TESTING.md))
+
+**What needs testing:**
+- Hardware validation on Raspberry Pi 5/4
+- NPU acceleration with Hailo-8L AI Kit
+- Performance benchmarking
+- See [TESTING.md](docs/TESTING.md) for test status and how to contribute
 
 See [PROTOTYPE.md](docs/PROTOTYPE.md) for complete details.
 
