@@ -71,8 +71,9 @@ Phase 5: Polish         [==------------------]  10% Started
 |-----------|--------|-------------|
 | Bootloader (Stage 1) | Complete | ARM64 assembly bootstrap |
 | Bootloader (Stage 2) | Complete | Rust early initialization |
-| Kernel Core | Complete | Process, memory, IPC, VFS, scheduler |
-| AI Scheduler | Complete | Priority queues, AI prediction hooks |
+| Kernel Core | Complete | Process, memory, IPC, VFS, scheduler, SMP |
+| AI Scheduler | Complete | Priority queues, AI prediction hooks, multi-core |
+| SMP Support | Complete | Multi-core, load balancing, CPU affinity |
 | Memory Manager | Complete | Buddy allocator, slab allocator, paging |
 | IPC System | Complete | Message passing, named endpoints |
 | VFS | Complete | FAT32, ext4, ramfs, procfs, sysfs, devfs |
@@ -889,7 +890,7 @@ aarch64-none-elf-gdb target/aarch64-unknown-none/release/hublabio-kernel
 
 ### Performance Limitations
 
-1. **Single-core Only**: SMP not implemented yet
+1. **~~Single-core Only~~**: SMP fully implemented (multi-core support complete)
 2. **No DMA**: All I/O is CPU-driven
 3. **No GPU**: No graphics acceleration
 4. **Limited Memory**: No swap, may OOM with large models

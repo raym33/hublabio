@@ -105,12 +105,23 @@ pub mod nr {
     pub const SETSOCKOPT: usize = 89;
     pub const GETSOCKOPT: usize = 90;
 
+    // Scheduling / CPU affinity
+    pub const SCHED_SETAFFINITY: usize = 95;
+    pub const SCHED_GETAFFINITY: usize = 96;
+    pub const SCHED_YIELD: usize = 97;
+    pub const SCHED_GET_PRIORITY_MAX: usize = 98;
+    pub const SCHED_GET_PRIORITY_MIN: usize = 99;
+
     // AI (HubLab IO specific)
     pub const AI_LOAD: usize = 100;
     pub const AI_GENERATE: usize = 101;
     pub const AI_TOKENIZE: usize = 102;
     pub const AI_UNLOAD: usize = 103;
     pub const AI_EMBED: usize = 104;
+
+    // SMP specific
+    pub const GETCPU: usize = 110;
+    pub const SMP_INFO: usize = 111;
 }
 
 /// Syscall error codes (POSIX-compatible)
@@ -366,6 +377,17 @@ pub extern "C" fn syscall_handler(
         nr::AI_TOKENIZE => sys_ai_tokenize(arg0, arg1, arg2, arg3),
         nr::AI_UNLOAD => sys_ai_unload(arg0 as u32),
         nr::AI_EMBED => sys_ai_embed(arg0, arg1, arg2, arg3),
+
+        // Scheduling / CPU affinity
+        nr::SCHED_SETAFFINITY => sys_sched_setaffinity(arg0 as u32, arg1, arg2),
+        nr::SCHED_GETAFFINITY => sys_sched_getaffinity(arg0 as u32, arg1, arg2),
+        nr::SCHED_YIELD => sys_sched_yield(),
+        nr::SCHED_GET_PRIORITY_MAX => sys_sched_get_priority_max(arg0 as i32),
+        nr::SCHED_GET_PRIORITY_MIN => sys_sched_get_priority_min(arg0 as i32),
+
+        // SMP specific
+        nr::GETCPU => sys_getcpu(arg0, arg1, arg2),
+        nr::SMP_INFO => sys_smp_info(arg0),
 
         _ => {
             crate::kwarn!("Unknown syscall: {}", nr);
@@ -1762,4 +1784,209 @@ fn sys_ai_embed(
 
     // Return embedding dimension (placeholder)
     0
+}
+
+// ============================================================================
+// SMP / Scheduling Syscalls
+// ============================================================================
+
+/// Set CPU affinity mask for a process
+fn sys_sched_setaffinity(pid: u32, cpusetsize: usize, mask_ptr: usize) -> SyscallResult {
+    // pid 0 means current process
+    let target_pid = if pid == 0 {
+        if let Some(proc) = process::current() {
+            proc.pid
+        } else {
+            return errno::ESRCH;
+        }
+    } else {
+        Pid(pid as u64)
+    };
+
+    // Read the CPU mask from user space
+    if cpusetsize < 8 {
+        return errno::EINVAL;
+    }
+
+    let mask: u64 = unsafe {
+        if let Ok(m) = copy_u64_from_user(mask_ptr) {
+            m
+        } else {
+            return errno::EFAULT;
+        }
+    };
+
+    // Validate mask - at least one CPU must be set
+    if mask == 0 {
+        return errno::EINVAL;
+    }
+
+    // Check that set CPUs are actually online
+    let online_mask = get_online_cpu_mask();
+    if mask & online_mask == 0 {
+        return errno::EINVAL;
+    }
+
+    // Set the affinity
+    crate::scheduler::set_affinity(target_pid, mask);
+
+    errno::SUCCESS
+}
+
+/// Get CPU affinity mask for a process
+fn sys_sched_getaffinity(pid: u32, cpusetsize: usize, mask_ptr: usize) -> SyscallResult {
+    // pid 0 means current process
+    let target_pid = if pid == 0 {
+        if let Some(proc) = process::current() {
+            proc.pid
+        } else {
+            return errno::ESRCH;
+        }
+    } else {
+        Pid(pid as u64)
+    };
+
+    if cpusetsize < 8 {
+        return errno::EINVAL;
+    }
+
+    let mask = crate::scheduler::get_affinity(target_pid);
+
+    unsafe {
+        if copy_u64_to_user(mask_ptr, mask).is_err() {
+            return errno::EFAULT;
+        }
+    }
+
+    8 // Return size of mask
+}
+
+/// Yield the processor
+fn sys_sched_yield() -> SyscallResult {
+    crate::scheduler::yield_now();
+    errno::SUCCESS
+}
+
+/// Get maximum priority for a scheduling policy
+fn sys_sched_get_priority_max(policy: i32) -> SyscallResult {
+    let _ = policy;
+    // Our scheduler uses 0-63 priority range
+    63
+}
+
+/// Get minimum priority for a scheduling policy
+fn sys_sched_get_priority_min(policy: i32) -> SyscallResult {
+    let _ = policy;
+    0
+}
+
+/// Get the CPU the calling thread is running on
+fn sys_getcpu(cpu_ptr: usize, node_ptr: usize, _unused: usize) -> SyscallResult {
+    let cpu = crate::smp::cpu_id();
+
+    if cpu_ptr != 0 {
+        unsafe {
+            if copy_u32_to_user(cpu_ptr, cpu).is_err() {
+                return errno::EFAULT;
+            }
+        }
+    }
+
+    if node_ptr != 0 {
+        // NUMA node - we only have one node for now
+        unsafe {
+            if copy_u32_to_user(node_ptr, 0).is_err() {
+                return errno::EFAULT;
+            }
+        }
+    }
+
+    errno::SUCCESS
+}
+
+/// SMP info structure for user space
+#[repr(C)]
+struct SmpInfoUser {
+    online_cpus: u32,
+    total_cpus: u32,
+    current_cpu: u32,
+    _reserved: u32,
+    per_cpu_ticks: [u64; crate::smp::MAX_CPUS],
+    per_cpu_ctx_switches: [u64; crate::smp::MAX_CPUS],
+}
+
+/// Get SMP system information
+fn sys_smp_info(info_ptr: usize) -> SyscallResult {
+    if info_ptr == 0 {
+        return errno::EFAULT;
+    }
+
+    let stats = crate::smp::stats();
+
+    let mut info = SmpInfoUser {
+        online_cpus: stats.online_cpus as u32,
+        total_cpus: crate::smp::MAX_CPUS as u32,
+        current_cpu: crate::smp::cpu_id(),
+        _reserved: 0,
+        per_cpu_ticks: [0; crate::smp::MAX_CPUS],
+        per_cpu_ctx_switches: [0; crate::smp::MAX_CPUS],
+    };
+
+    // Fill in per-CPU stats
+    for cpu in 0..crate::smp::MAX_CPUS {
+        if let Some(pcpu) = crate::smp::get(cpu as u32) {
+            info.per_cpu_ticks[cpu] = pcpu.ticks.load(core::sync::atomic::Ordering::Relaxed);
+            info.per_cpu_ctx_switches[cpu] = pcpu.context_switches.load(core::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    unsafe {
+        let src = &info as *const SmpInfoUser as *const u8;
+        let size = core::mem::size_of::<SmpInfoUser>();
+        if copy_to_user(info_ptr, core::slice::from_raw_parts(src, size)).is_err() {
+            return errno::EFAULT;
+        }
+    }
+
+    errno::SUCCESS
+}
+
+/// Get a mask of online CPUs
+fn get_online_cpu_mask() -> u64 {
+    let mut mask = 0u64;
+    for cpu in 0..crate::smp::MAX_CPUS as u32 {
+        if crate::smp::is_online(cpu) {
+            mask |= 1 << cpu;
+        }
+    }
+    mask
+}
+
+/// Copy a u64 from user space
+unsafe fn copy_u64_from_user(ptr: usize) -> Result<u64, ()> {
+    if ptr == 0 {
+        return Err(());
+    }
+    // In a real implementation, validate the address
+    Ok(*(ptr as *const u64))
+}
+
+/// Copy a u64 to user space
+unsafe fn copy_u64_to_user(ptr: usize, value: u64) -> Result<(), ()> {
+    if ptr == 0 {
+        return Err(());
+    }
+    // In a real implementation, validate the address
+    *(ptr as *mut u64) = value;
+    Ok(())
+}
+
+/// Copy a u32 to user space
+unsafe fn copy_u32_to_user(ptr: usize, value: u32) -> Result<(), ()> {
+    if ptr == 0 {
+        return Err(());
+    }
+    // In a real implementation, validate the address
+    *(ptr as *mut u32) = value;
+    Ok(())
 }

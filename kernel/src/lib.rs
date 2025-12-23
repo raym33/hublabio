@@ -46,6 +46,8 @@ pub mod scheduler;
 pub mod seccomp;
 pub mod shell;
 pub mod signal;
+pub mod smp;
+pub mod sync;
 pub mod syscall;
 pub mod task;
 pub mod time;
@@ -309,13 +311,25 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     kprintln!("[BOOT] Initializing hardware drivers...");
     drivers::init();
 
+    // Initialize SMP (multi-core support)
+    kprintln!("[BOOT] Initializing SMP...");
+    smp::init();
+
     kprintln!();
     kprintln!("[BOOT] Kernel initialization complete!");
+    kprintln!("[BOOT] Starting secondary CPUs...");
+
+    // Start secondary CPUs
+    smp::start_secondaries();
+
     kprintln!("[BOOT] Starting init process...");
     kprintln!();
 
     // Start the init process (PID 1)
     process::spawn_init();
+
+    // Enable scheduling on secondary CPUs
+    smp::enable_scheduling();
 
     // Enter scheduler loop (never returns)
     scheduler::run()
