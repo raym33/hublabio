@@ -5,9 +5,9 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec::Vec;
-use alloc::vec;
 use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 use spin::{Mutex, RwLock};
 
@@ -235,7 +235,10 @@ impl RamFs {
         let (parent_path, name) = split_path(path);
 
         let parent_inode_id = self.resolve_path(&parent_path)?;
-        let parent_inode = self.inodes.get_mut(&parent_inode_id).ok_or(VfsError::NotFound)?;
+        let parent_inode = self
+            .inodes
+            .get_mut(&parent_inode_id)
+            .ok_or(VfsError::NotFound)?;
 
         if parent_inode.file_type != FileType::Directory {
             return Err(VfsError::NotADirectory);
@@ -248,7 +251,11 @@ impl RamFs {
         let inode_id = INODE_COUNTER.fetch_add(1, Ordering::SeqCst);
         let inode = Inode {
             id: inode_id,
-            file_type: if is_dir { FileType::Directory } else { FileType::Regular },
+            file_type: if is_dir {
+                FileType::Directory
+            } else {
+                FileType::Regular
+            },
             data: Vec::new(),
             children: BTreeMap::new(),
             parent: Some(parent_inode_id),
@@ -326,7 +333,7 @@ impl RamFs {
                 Some(FileType::Directory) => 4, // DT_DIR
                 Some(FileType::Regular) => 8,   // DT_REG
                 Some(FileType::SymLink) => 10,  // DT_LNK
-                _ => 0, // DT_UNKNOWN
+                _ => 0,                         // DT_UNKNOWN
             };
             entries.push((name.clone(), child_id, dtype));
         }
@@ -339,7 +346,10 @@ impl RamFs {
 
         let parent_inode_id = self.resolve_path(&parent_path)?;
         let inode_id = {
-            let parent_inode = self.inodes.get(&parent_inode_id).ok_or(VfsError::NotFound)?;
+            let parent_inode = self
+                .inodes
+                .get(&parent_inode_id)
+                .ok_or(VfsError::NotFound)?;
             *parent_inode.children.get(&name).ok_or(VfsError::NotFound)?
         };
 
@@ -394,9 +404,7 @@ pub fn open(path: &str, flags: u32, mode: u32) -> Result<u32, VfsError> {
 
     let inode_id = match fs.resolve_path(path) {
         Ok(id) => id,
-        Err(VfsError::NotFound) if create => {
-            fs.create_file(path, false)?
-        }
+        Err(VfsError::NotFound) if create => fs.create_file(path, false)?,
         Err(e) => return Err(e),
     };
 
@@ -410,12 +418,15 @@ pub fn open(path: &str, flags: u32, mode: u32) -> Result<u32, VfsError> {
     let fd = FD_COUNTER.fetch_add(1, Ordering::SeqCst) as u32;
     let _ = mode; // mode is used for creation permissions
 
-    OPEN_FILES.write().insert(fd, OpenFile {
-        path: String::from(path),
-        flags,
-        position: 0,
-        inode: inode_id,
-    });
+    OPEN_FILES.write().insert(
+        fd,
+        OpenFile {
+            path: String::from(path),
+            flags,
+            position: 0,
+            inode: inode_id,
+        },
+    );
 
     Ok(fd)
 }
@@ -482,14 +493,16 @@ pub fn seek(fd: u32, offset: i64, whence: u32) -> Result<u64, VfsError> {
     let fs = ROOT_FS.read();
     let fs = fs.as_ref().ok_or(VfsError::NotMounted)?;
 
-    let size = fs.inodes.get(&file.inode)
+    let size = fs
+        .inodes
+        .get(&file.inode)
         .map(|i| i.data.len() as i64)
         .unwrap_or(0);
 
     let new_pos = match whence {
-        0 => offset, // SEEK_SET
+        0 => offset,                        // SEEK_SET
         1 => file.position as i64 + offset, // SEEK_CUR
-        2 => size + offset, // SEEK_END
+        2 => size + offset,                 // SEEK_END
         _ => return Err(VfsError::IoError),
     };
 

@@ -19,7 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
         with:
-          components: rustfmt
+          targets: aarch64-unknown-none, riscv64gc-unknown-none-elf
+          components: rustfmt, clippy, rust-src, llvm-tools-preview
       - run: cargo fmt --all -- --check
 
   # Run clippy lints

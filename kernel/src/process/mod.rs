@@ -5,13 +5,13 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
-use core::sync::atomic::{AtomicU64, AtomicU32, Ordering};
+use alloc::vec::Vec;
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use spin::{Mutex, RwLock};
 
-pub mod elf;
 pub mod context;
+pub mod elf;
 
 /// Process ID counter
 static PID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -358,12 +358,15 @@ impl Process {
     /// Add a file descriptor
     pub fn add_fd(&self, path: &str, flags: u32) -> u32 {
         let fd = self.next_fd.fetch_add(1, Ordering::SeqCst);
-        self.files.lock().insert(fd, FileDescriptor {
+        self.files.lock().insert(
             fd,
-            flags,
-            path: String::from(path),
-            offset: 0,
-        });
+            FileDescriptor {
+                fd,
+                flags,
+                path: String::from(path),
+                offset: 0,
+            },
+        );
         fd
     }
 
@@ -506,24 +509,33 @@ pub fn spawn_init() {
     }
 
     // Set up standard file descriptors
-    init.files.lock().insert(0, FileDescriptor {
-        fd: 0,
-        flags: 0, // O_RDONLY
-        path: String::from("/dev/console"),
-        offset: 0,
-    });
-    init.files.lock().insert(1, FileDescriptor {
-        fd: 1,
-        flags: 1, // O_WRONLY
-        path: String::from("/dev/console"),
-        offset: 0,
-    });
-    init.files.lock().insert(2, FileDescriptor {
-        fd: 2,
-        flags: 1, // O_WRONLY
-        path: String::from("/dev/console"),
-        offset: 0,
-    });
+    init.files.lock().insert(
+        0,
+        FileDescriptor {
+            fd: 0,
+            flags: 0, // O_RDONLY
+            path: String::from("/dev/console"),
+            offset: 0,
+        },
+    );
+    init.files.lock().insert(
+        1,
+        FileDescriptor {
+            fd: 1,
+            flags: 1, // O_WRONLY
+            path: String::from("/dev/console"),
+            offset: 0,
+        },
+    );
+    init.files.lock().insert(
+        2,
+        FileDescriptor {
+            fd: 2,
+            flags: 1, // O_WRONLY
+            path: String::from("/dev/console"),
+            offset: 0,
+        },
+    );
 
     init.set_state(ProcessState::Ready);
 
@@ -671,24 +683,28 @@ pub struct ProcessInfo {
 
 /// Get process info for all processes
 pub fn info() -> Vec<ProcessInfo> {
-    PROCESSES.read().values().map(|p| {
-        let state_str = match p.get_state() {
-            ProcessState::Creating => "creating",
-            ProcessState::Ready => "ready",
-            ProcessState::Running => "running",
-            ProcessState::Blocked(_) => "blocked",
-            ProcessState::Stopped => "stopped",
-            ProcessState::Zombie(_) => "zombie",
-        };
+    PROCESSES
+        .read()
+        .values()
+        .map(|p| {
+            let state_str = match p.get_state() {
+                ProcessState::Creating => "creating",
+                ProcessState::Ready => "ready",
+                ProcessState::Running => "running",
+                ProcessState::Blocked(_) => "blocked",
+                ProcessState::Stopped => "stopped",
+                ProcessState::Zombie(_) => "zombie",
+            };
 
-        ProcessInfo {
-            pid: p.pid.0,
-            ppid: p.ppid.0,
-            name: p.name.clone(),
-            state: state_str,
-            priority: p.priority.0,
-            threads: p.threads.read().len(),
-            cpu_time: p.cpu_time.load(Ordering::Relaxed),
-        }
-    }).collect()
+            ProcessInfo {
+                pid: p.pid.0,
+                ppid: p.ppid.0,
+                name: p.name.clone(),
+                state: state_str,
+                priority: p.priority.0,
+                threads: p.threads.read().len(),
+                cpu_time: p.cpu_time.load(Ordering::Relaxed),
+            }
+        })
+        .collect()
 }

@@ -116,7 +116,11 @@ pub fn handle_page_fault(ctx: &PageFaultContext) -> FaultResult {
 
     crate::kdebug!(
         "Page fault: addr=0x{:x} ip=0x{:x} type={:?} cause={:?} user={}",
-        ctx.address, ctx.ip, ctx.fault_type, ctx.cause, ctx.user_mode
+        ctx.address,
+        ctx.ip,
+        ctx.fault_type,
+        ctx.cause,
+        ctx.user_mode
     );
 
     // Get process address space
@@ -231,10 +235,7 @@ fn handle_demand_paging(
 }
 
 /// Handle copy-on-write fault
-fn handle_cow_fault(
-    space: &crate::cow::AddressSpace,
-    ctx: &PageFaultContext,
-) -> FaultResult {
+fn handle_cow_fault(space: &crate::cow::AddressSpace, ctx: &PageFaultContext) -> FaultResult {
     match space.handle_page_fault(ctx.address, true) {
         Ok(()) => FaultResult::Handled,
         Err(crate::cow::PageFaultError::OutOfMemory) => {
@@ -282,7 +283,9 @@ fn handle_file_fault(
 ) -> FaultResult {
     crate::kdebug!(
         "File fault: addr=0x{:x} file={} offset=0x{:x}",
-        ctx.address, file.path, file.offset
+        ctx.address,
+        file.path,
+        file.offset
     );
 
     // Calculate offset in file
@@ -329,7 +332,9 @@ fn handle_swap_in(
 ) -> FaultResult {
     crate::kdebug!(
         "Swap in: addr=0x{:x} dev={} offset={}",
-        ctx.address, entry.dev, entry.offset
+        ctx.address,
+        entry.dev,
+        entry.offset
     );
 
     // 1. Allocate physical page
@@ -418,13 +423,15 @@ pub fn parse_fault_info(esr: u64, far: u64, elr: u64, user: bool, pid: Pid) -> P
 
     let (fault_type, cause) = match ec {
         // Instruction abort
-        0x20 | 0x21 => {
-            (FaultType::Execute, parse_abort_cause(iss))
-        }
+        0x20 | 0x21 => (FaultType::Execute, parse_abort_cause(iss)),
         // Data abort
         0x24 | 0x25 => {
             let is_write = (iss & (1 << 6)) != 0;
-            let fault_type = if is_write { FaultType::Write } else { FaultType::Read };
+            let fault_type = if is_write {
+                FaultType::Write
+            } else {
+                FaultType::Read
+            };
             (fault_type, parse_abort_cause(iss))
         }
         _ => (FaultType::Read, FaultCause::Protection),
@@ -491,7 +498,12 @@ pub fn generate_vmstat() -> alloc::string::String {
          cow_faults {}\n\
          stack_faults {}\n\
          protection_faults {}\n",
-        total, major, minor, cow, stack, prot
+        total,
+        major,
+        minor,
+        cow,
+        stack,
+        prot
     )
 }
 

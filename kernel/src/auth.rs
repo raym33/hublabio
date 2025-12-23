@@ -71,71 +71,92 @@ pub fn init() {
     let mut groups_by_name = GROUPS_BY_NAME.write();
 
     // Create root group
-    groups.insert(0, Group {
-        gid: 0,
-        name: String::from("root"),
-        members: vec![0],
-    });
+    groups.insert(
+        0,
+        Group {
+            gid: 0,
+            name: String::from("root"),
+            members: vec![0],
+        },
+    );
     groups_by_name.insert(String::from("root"), 0);
 
     // Create wheel group (sudo)
-    groups.insert(10, Group {
-        gid: 10,
-        name: String::from("wheel"),
-        members: vec![0],
-    });
+    groups.insert(
+        10,
+        Group {
+            gid: 10,
+            name: String::from("wheel"),
+            members: vec![0],
+        },
+    );
     groups_by_name.insert(String::from("wheel"), 10);
 
     // Create users group
-    groups.insert(100, Group {
-        gid: 100,
-        name: String::from("users"),
-        members: Vec::new(),
-    });
+    groups.insert(
+        100,
+        Group {
+            gid: 100,
+            name: String::from("users"),
+            members: Vec::new(),
+        },
+    );
     groups_by_name.insert(String::from("users"), 100);
 
     // Create root user
-    users.insert(0, User {
-        uid: 0,
-        gid: 0,
-        name: String::from("root"),
-        home: String::from("/root"),
-        shell: String::from("/bin/sh"),
-        password_hash: None, // No password by default
-        groups: vec![0, 10],
-    });
+    users.insert(
+        0,
+        User {
+            uid: 0,
+            gid: 0,
+            name: String::from("root"),
+            home: String::from("/root"),
+            shell: String::from("/bin/sh"),
+            password_hash: None, // No password by default
+            groups: vec![0, 10],
+        },
+    );
     users_by_name.insert(String::from("root"), 0);
 
     // Create hublab user
-    users.insert(1000, User {
-        uid: 1000,
-        gid: 100,
-        name: String::from("hublab"),
-        home: String::from("/home/hublab"),
-        shell: String::from("/bin/sh"),
-        password_hash: None,
-        groups: vec![100, 10],
-    });
+    users.insert(
+        1000,
+        User {
+            uid: 1000,
+            gid: 100,
+            name: String::from("hublab"),
+            home: String::from("/home/hublab"),
+            shell: String::from("/bin/sh"),
+            password_hash: None,
+            groups: vec![100, 10],
+        },
+    );
     users_by_name.insert(String::from("hublab"), 1000);
 
     // Create nobody user
-    users.insert(65534, User {
-        uid: 65534,
-        gid: 65534,
-        name: String::from("nobody"),
-        home: String::from("/"),
-        shell: String::from("/bin/false"),
-        password_hash: Some(String::from("!")), // Locked
-        groups: vec![65534],
-    });
+    users.insert(
+        65534,
+        User {
+            uid: 65534,
+            gid: 65534,
+            name: String::from("nobody"),
+            home: String::from("/"),
+            shell: String::from("/bin/false"),
+            password_hash: Some(String::from("!")), // Locked
+            groups: vec![65534],
+        },
+    );
     users_by_name.insert(String::from("nobody"), 65534);
 
     // Create nogroup
-    groups.insert(65534, Group {
-        gid: 65534,
-        name: String::from("nogroup"),
-        members: vec![65534],
-    });
+    groups.insert(
+        65534,
+        Group {
+            gid: 65534,
+            name: String::from("nogroup"),
+            members: vec![65534],
+        },
+    );
     groups_by_name.insert(String::from("nogroup"), 65534);
 
     crate::kprintln!("  Authentication system initialized");
@@ -267,7 +288,10 @@ pub fn delete_group(gid: Gid) -> Result<(), AuthError> {
         return Err(AuthError::PermissionDenied);
     }
 
-    let group = GROUPS.write().remove(&gid).ok_or(AuthError::GroupNotFound)?;
+    let group = GROUPS
+        .write()
+        .remove(&gid)
+        .ok_or(AuthError::GroupNotFound)?;
     GROUPS_BY_NAME.write().remove(&group.name);
 
     crate::kinfo!("Deleted group {} (gid={})", group.name, gid);
@@ -416,13 +440,17 @@ pub fn generate_group() -> String {
 
     for group in list_groups() {
         // Format: name:x:gid:members
-        let members: Vec<String> = group.members.iter()
+        let members: Vec<String> = group
+            .members
+            .iter()
             .filter_map(|&uid| get_user(uid).map(|u| u.name))
             .collect();
 
         s.push_str(&format!(
             "{}:x:{}:{}\n",
-            group.name, group.gid, members.join(",")
+            group.name,
+            group.gid,
+            members.join(",")
         ));
     }
 
@@ -436,10 +464,7 @@ pub fn generate_shadow() -> String {
     for user in list_users() {
         // Format: name:hash:lastchange:min:max:warn:inactive:expire:reserved
         let hash = user.password_hash.as_deref().unwrap_or("!");
-        s.push_str(&format!(
-            "{}:{}:0:0:99999:7:::\n",
-            user.name, hash
-        ));
+        s.push_str(&format!("{}:{}:0:0:99999:7:::\n", user.name, hash));
     }
 
     s

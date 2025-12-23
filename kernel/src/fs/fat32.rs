@@ -4,12 +4,12 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use spin::RwLock;
 
-use super::{Filesystem, FileHandle, DirEntry, BlockDevice};
-use crate::vfs::{FileType, FileStat, FilePermissions, OpenFlags, VfsError};
+use super::{BlockDevice, DirEntry, FileHandle, Filesystem};
+use crate::vfs::{FilePermissions, FileStat, FileType, OpenFlags, VfsError};
 
 /// FAT32 Boot Sector
 #[repr(C, packed)]
@@ -21,10 +21,10 @@ struct Fat32BootSector {
     sectors_per_cluster: u8,
     reserved_sectors: u16,
     num_fats: u8,
-    root_entry_count: u16,  // 0 for FAT32
-    total_sectors_16: u16,  // 0 for FAT32
+    root_entry_count: u16, // 0 for FAT32
+    total_sectors_16: u16, // 0 for FAT32
     media_type: u8,
-    fat_size_16: u16,       // 0 for FAT32
+    fat_size_16: u16, // 0 for FAT32
     sectors_per_track: u16,
     num_heads: u16,
     hidden_sectors: u32,
@@ -79,7 +79,7 @@ mod attr {
 mod fat {
     pub const FREE: u32 = 0x00000000;
     pub const BAD: u32 = 0x0FFFFFF7;
-    pub const EOC: u32 = 0x0FFFFFF8;  // End of chain
+    pub const EOC: u32 = 0x0FFFFFF8; // End of chain
 }
 
 /// FAT32 filesystem
@@ -104,9 +104,8 @@ impl Fat32Fs {
         device.read_block(0, &mut boot_sector)?;
 
         // Parse boot sector
-        let bs = unsafe {
-            core::ptr::read_unaligned(boot_sector.as_ptr() as *const Fat32BootSector)
-        };
+        let bs =
+            unsafe { core::ptr::read_unaligned(boot_sector.as_ptr() as *const Fat32BootSector) };
 
         // Validate
         if bs.bytes_per_sector < 512 || bs.sectors_per_cluster == 0 {
@@ -228,7 +227,10 @@ impl Fat32Fs {
 
         for i in 0..self.sectors_per_cluster {
             let offset = (i * self.bytes_per_sector) as usize;
-            self.device.read_block(sector + i as u64, &mut data[offset..offset + self.bytes_per_sector as usize])?;
+            self.device.read_block(
+                sector + i as u64,
+                &mut data[offset..offset + self.bytes_per_sector as usize],
+            )?;
         }
 
         Ok(data)
@@ -236,12 +238,8 @@ impl Fat32Fs {
 
     /// Parse 8.3 filename
     fn parse_filename(entry: &Fat32DirEntry) -> String {
-        let name = core::str::from_utf8(&entry.name)
-            .unwrap_or("")
-            .trim_end();
-        let ext = core::str::from_utf8(&entry.ext)
-            .unwrap_or("")
-            .trim_end();
+        let name = core::str::from_utf8(&entry.name).unwrap_or("").trim_end();
+        let ext = core::str::from_utf8(&entry.ext).unwrap_or("").trim_end();
 
         if ext.is_empty() {
             String::from(name)
@@ -313,13 +311,14 @@ impl Fat32Fs {
         for (i, part) in parts.iter().enumerate() {
             let entries = self.read_directory(current_cluster)?;
 
-            let found = entries.iter().find(|(_, name)| {
-                name.eq_ignore_ascii_case(part)
-            });
+            let found = entries
+                .iter()
+                .find(|(_, name)| name.eq_ignore_ascii_case(part));
 
             match found {
                 Some((entry, _)) => {
-                    let entry_cluster = ((entry.cluster_high as u32) << 16) | (entry.cluster_low as u32);
+                    let entry_cluster =
+                        ((entry.cluster_high as u32) << 16) | (entry.cluster_low as u32);
 
                     if i == parts.len() - 1 {
                         return Ok((*entry, entry_cluster));

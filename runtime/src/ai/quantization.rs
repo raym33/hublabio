@@ -86,12 +86,12 @@ impl QuantType {
         match self {
             QuantType::F32 => 4,
             QuantType::F16 => 2,
-            QuantType::Q4_0 => 18,   // 2 (scale) + 16 (32 * 4-bit / 8)
-            QuantType::Q4_1 => 20,   // 2 (scale) + 2 (min) + 16
-            QuantType::Q5_0 => 22,   // 2 + 4 (high bits) + 16
+            QuantType::Q4_0 => 18, // 2 (scale) + 16 (32 * 4-bit / 8)
+            QuantType::Q4_1 => 20, // 2 (scale) + 2 (min) + 16
+            QuantType::Q5_0 => 22, // 2 + 4 (high bits) + 16
             QuantType::Q5_1 => 24,
-            QuantType::Q8_0 => 34,   // 2 + 32
-            QuantType::Q8_1 => 36,   // 2 + 2 + 32
+            QuantType::Q8_0 => 34, // 2 + 32
+            QuantType::Q8_1 => 36, // 2 + 2 + 32
             QuantType::Q2_K => 84,
             QuantType::Q3_K => 110,
             QuantType::Q4_K => 144,
@@ -125,18 +125,29 @@ impl QuantType {
 
     /// Check if this is a K-quant type
     pub fn is_k_quant(&self) -> bool {
-        matches!(self,
-            QuantType::Q2_K | QuantType::Q3_K | QuantType::Q4_K |
-            QuantType::Q5_K | QuantType::Q6_K | QuantType::Q8_K
+        matches!(
+            self,
+            QuantType::Q2_K
+                | QuantType::Q3_K
+                | QuantType::Q4_K
+                | QuantType::Q5_K
+                | QuantType::Q6_K
+                | QuantType::Q8_K
         )
     }
 
     /// Check if this is an importance quantization type
     pub fn is_iq(&self) -> bool {
-        matches!(self,
-            QuantType::IQ2_XXS | QuantType::IQ2_XS | QuantType::IQ2_S |
-            QuantType::IQ3_XXS | QuantType::IQ3_S |
-            QuantType::IQ4_NL | QuantType::IQ4_XS | QuantType::IQ1_S
+        matches!(
+            self,
+            QuantType::IQ2_XXS
+                | QuantType::IQ2_XS
+                | QuantType::IQ2_S
+                | QuantType::IQ3_XXS
+                | QuantType::IQ3_S
+                | QuantType::IQ4_NL
+                | QuantType::IQ4_XS
+                | QuantType::IQ1_S
         )
     }
 }

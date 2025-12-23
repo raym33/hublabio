@@ -5,8 +5,8 @@
 //! and model coordination.
 
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::mem;
 
 use super::NodeId;
@@ -242,7 +242,10 @@ impl ActivationData {
             2 => 2, // bf16
             _ => 4,
         };
-        (self.batch_size as usize) * (self.seq_len as usize) * (self.hidden_dim as usize) * element_size
+        (self.batch_size as usize)
+            * (self.seq_len as usize)
+            * (self.hidden_dim as usize)
+            * element_size
     }
 }
 
@@ -353,7 +356,11 @@ impl InferenceResponse {
     /// Serialize response
     pub fn serialize(&self) -> Vec<u8> {
         let tokens_len = self.tokens.len() * 4;
-        let error_bytes = self.error.as_ref().map(|e| e.as_bytes().to_vec()).unwrap_or_default();
+        let error_bytes = self
+            .error
+            .as_ref()
+            .map(|e| e.as_bytes().to_vec())
+            .unwrap_or_default();
 
         let size = 8 + 4 + tokens_len + 8 + 4 + 1 + 4 + error_bytes.len();
         let mut bytes = Vec::with_capacity(size);
@@ -397,7 +404,8 @@ impl InferenceResponse {
         let time_us = u64::from_le_bytes(bytes[offset..offset + 8].try_into().ok()?);
         let tokens_per_second = f32::from_le_bytes(bytes[offset + 8..offset + 12].try_into().ok()?);
         let success = bytes[offset + 12] != 0;
-        let error_len = u32::from_le_bytes(bytes[offset + 13..offset + 17].try_into().ok()?) as usize;
+        let error_len =
+            u32::from_le_bytes(bytes[offset + 13..offset + 17].try_into().ok()?) as usize;
 
         let error = if error_len > 0 && bytes.len() >= offset + 17 + error_len {
             String::from_utf8(bytes[offset + 17..offset + 17 + error_len].to_vec()).ok()
@@ -581,7 +589,11 @@ impl RequestTracker {
 
     /// Mark request as complete
     pub fn complete(&mut self, request_id: u64) -> Option<u64> {
-        if let Some(idx) = self.in_flight.iter().position(|(id, _, _)| *id == request_id) {
+        if let Some(idx) = self
+            .in_flight
+            .iter()
+            .position(|(id, _, _)| *id == request_id)
+        {
             let (_, sent_time, _) = self.in_flight.remove(idx);
             return Some(sent_time);
         }

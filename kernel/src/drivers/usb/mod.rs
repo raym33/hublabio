@@ -2,14 +2,14 @@
 //!
 //! Universal Serial Bus support for HubLab IO.
 
-pub mod hcd;
 pub mod device;
+pub mod hcd;
 pub mod hub;
 
-use alloc::vec::Vec;
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Arc;
-use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
 use spin::{Mutex, RwLock};
 
 /// USB device address counter
@@ -21,10 +21,10 @@ static DEVICES: RwLock<BTreeMap<u8, Arc<UsbDevice>>> = RwLock::new(BTreeMap::new
 /// USB speed
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UsbSpeed {
-    Low,      // 1.5 Mbps
-    Full,     // 12 Mbps
-    High,     // 480 Mbps
-    Super,    // 5 Gbps
+    Low,       // 1.5 Mbps
+    Full,      // 12 Mbps
+    High,      // 480 Mbps
+    Super,     // 5 Gbps
     SuperPlus, // 10+ Gbps
 }
 
@@ -131,7 +131,7 @@ pub struct Interface {
 #[derive(Clone, Debug)]
 pub struct Configuration {
     pub value: u8,
-    pub max_power: u8,  // In 2mA units
+    pub max_power: u8, // In 2mA units
     pub self_powered: bool,
     pub remote_wakeup: bool,
     pub interfaces: Vec<Interface>,
@@ -299,7 +299,13 @@ pub struct SetupPacket {
 }
 
 impl SetupPacket {
-    pub fn new(request_type: RequestType, request: u8, value: u16, index: u16, length: u16) -> Self {
+    pub fn new(
+        request_type: RequestType,
+        request: u8,
+        value: u16,
+        index: u16,
+        length: u16,
+    ) -> Self {
         Self {
             request_type: request_type.to_byte(),
             request,

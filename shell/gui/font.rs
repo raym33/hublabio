@@ -374,9 +374,7 @@ impl BitmapFont {
 
     /// Measure text width
     pub fn measure_width(&self, text: &str) -> u32 {
-        text.chars()
-            .filter(|&c| c != '\n')
-            .count() as u32 * CHAR_WIDTH
+        text.chars().filter(|&c| c != '\n').count() as u32 * CHAR_WIDTH
     }
 
     /// Measure text height (single line)
@@ -394,14 +392,7 @@ pub fn font() -> &'static BitmapFont {
 }
 
 /// Draw text using the global font
-pub fn draw_text(
-    buffer: &mut [u32],
-    screen_width: u32,
-    x: i32,
-    y: i32,
-    text: &str,
-    color: Color,
-) {
+pub fn draw_text(buffer: &mut [u32], screen_width: u32, x: i32, y: i32, text: &str, color: Color) {
     FONT.draw_string(buffer, screen_width, x, y, text, color);
 }
 

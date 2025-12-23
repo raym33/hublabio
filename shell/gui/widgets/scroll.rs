@@ -2,10 +2,10 @@
 
 use alloc::boxed::Box;
 
-use crate::gui::{Rect, Color};
+use super::Widget;
 use crate::gui::input::MouseButton;
 use crate::gui::theme::Theme;
-use super::Widget;
+use crate::gui::{Color, Rect};
 
 /// ScrollView widget
 pub struct ScrollView {
@@ -47,8 +47,12 @@ impl ScrollView {
 
     /// Scroll to position
     pub fn scroll_to(&mut self, x: i32, y: i32) {
-        self.scroll_x = x.max(0).min((self.content_width as i32 - self.bounds.width as i32).max(0));
-        self.scroll_y = y.max(0).min((self.content_height as i32 - self.bounds.height as i32).max(0));
+        self.scroll_x = x
+            .max(0)
+            .min((self.content_width as i32 - self.bounds.width as i32).max(0));
+        self.scroll_y = y
+            .max(0)
+            .min((self.content_height as i32 - self.bounds.height as i32).max(0));
     }
 
     /// Get scroll position
@@ -135,11 +139,13 @@ impl Widget for ScrollView {
             // Vertical scrollbar
             if self.content_height > self.bounds.height {
                 let track_height = self.bounds.height - scrollbar_width;
-                let thumb_height = ((self.bounds.height as f32 / self.content_height as f32) * track_height as f32) as u32;
+                let thumb_height = ((self.bounds.height as f32 / self.content_height as f32)
+                    * track_height as f32) as u32;
                 let thumb_height = thumb_height.max(20);
 
                 let thumb_y = if self.max_scroll_y() > 0 {
-                    ((self.scroll_y as f32 / self.max_scroll_y() as f32) * (track_height - thumb_height) as f32) as u32
+                    ((self.scroll_y as f32 / self.max_scroll_y() as f32)
+                        * (track_height - thumb_height) as f32) as u32
                 } else {
                     0
                 };
@@ -150,7 +156,8 @@ impl Widget for ScrollView {
 
                 for y in 0..track_height {
                     for x in 0..scrollbar_width {
-                        let px = abs_x + self.bounds.width as i32 - scrollbar_width as i32 + x as i32;
+                        let px =
+                            abs_x + self.bounds.width as i32 - scrollbar_width as i32 + x as i32;
                         let py = abs_y + y as i32;
 
                         if px >= 0 && py >= 0 {
@@ -167,11 +174,13 @@ impl Widget for ScrollView {
             // Horizontal scrollbar
             if self.content_width > self.bounds.width {
                 let track_width = self.bounds.width - scrollbar_width;
-                let thumb_width = ((self.bounds.width as f32 / self.content_width as f32) * track_width as f32) as u32;
+                let thumb_width = ((self.bounds.width as f32 / self.content_width as f32)
+                    * track_width as f32) as u32;
                 let thumb_width = thumb_width.max(20);
 
                 let thumb_x = if self.max_scroll_x() > 0 {
-                    ((self.scroll_x as f32 / self.max_scroll_x() as f32) * (track_width - thumb_width) as f32) as u32
+                    ((self.scroll_x as f32 / self.max_scroll_x() as f32)
+                        * (track_width - thumb_width) as f32) as u32
                 } else {
                     0
                 };
@@ -182,7 +191,8 @@ impl Widget for ScrollView {
                 for y in 0..scrollbar_width {
                     for x in 0..track_width {
                         let px = abs_x + x as i32;
-                        let py = abs_y + self.bounds.height as i32 - scrollbar_width as i32 + y as i32;
+                        let py =
+                            abs_y + self.bounds.height as i32 - scrollbar_width as i32 + y as i32;
 
                         if px >= 0 && py >= 0 {
                             let idx = (py as u32 * screen_width + px as u32) as usize;
@@ -272,9 +282,18 @@ impl Widget for ScrollView {
                 75 => self.scroll_x = (self.scroll_x - scroll_speed).max(0), // Left
                 77 => self.scroll_x = (self.scroll_x + scroll_speed).min(self.max_scroll_x()), // Right
                 73 => self.scroll_y = (self.scroll_y - self.bounds.height as i32).max(0), // Page Up
-                81 => self.scroll_y = (self.scroll_y + self.bounds.height as i32).min(self.max_scroll_y()), // Page Down
-                71 => { self.scroll_x = 0; self.scroll_y = 0; } // Home
-                79 => { self.scroll_x = self.max_scroll_x(); self.scroll_y = self.max_scroll_y(); } // End
+                81 => {
+                    self.scroll_y =
+                        (self.scroll_y + self.bounds.height as i32).min(self.max_scroll_y())
+                } // Page Down
+                71 => {
+                    self.scroll_x = 0;
+                    self.scroll_y = 0;
+                } // Home
+                79 => {
+                    self.scroll_x = self.max_scroll_x();
+                    self.scroll_y = self.max_scroll_y();
+                } // End
                 _ => {
                     if let Some(ref mut child) = self.child {
                         child.handle_key(scancode, pressed);

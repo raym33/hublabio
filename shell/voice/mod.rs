@@ -3,20 +3,20 @@
 //! Speech-to-text (STT) and text-to-speech (TTS) for HubLab IO.
 //! Supports Whisper-style transcription and Piper-style synthesis.
 
+pub mod audio;
 pub mod stt;
 pub mod tts;
-pub mod audio;
 pub mod vad;
 
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
-use spin::RwLock;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, Ordering};
+use spin::RwLock;
 
+pub use audio::{AudioBuffer, AudioDevice, AudioFormat};
 pub use stt::{SpeechToText, TranscriptionResult};
-pub use tts::{TextToSpeech, Voice, SpeechConfig};
-pub use audio::{AudioBuffer, AudioFormat, AudioDevice};
+pub use tts::{SpeechConfig, TextToSpeech, Voice};
 pub use vad::VoiceActivityDetector;
 
 /// Voice interface state
@@ -206,7 +206,8 @@ impl VoiceInterface {
 
         self.set_state(VoiceState::Processing);
 
-        let result = stt.transcribe(audio, self.config.read().sample_rate)
+        let result = stt
+            .transcribe(audio, self.config.read().sample_rate)
             .map_err(|_| VoiceError::TranscriptionFailed)?;
 
         self.set_state(VoiceState::Idle);
@@ -229,12 +230,14 @@ impl VoiceInterface {
             volume: 1.0,
         };
 
-        let audio = tts.synthesize(text, &speech_config)
+        let audio = tts
+            .synthesize(text, &speech_config)
             .map_err(|_| VoiceError::SynthesisFailed)?;
 
         // Play audio through output device
         if let Some(ref output) = self.audio_output {
-            output.write(&audio.samples)
+            output
+                .write(&audio.samples)
                 .map_err(|_| VoiceError::AudioError)?;
         }
 

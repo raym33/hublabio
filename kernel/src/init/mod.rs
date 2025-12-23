@@ -13,7 +13,7 @@ use spin::RwLock;
 
 pub mod service;
 
-pub use service::{Service, ServiceState, ServiceConfig};
+pub use service::{Service, ServiceConfig, ServiceState};
 
 /// Global service manager
 pub static SERVICE_MANAGER: RwLock<ServiceManager> = RwLock::new(ServiceManager::new());
@@ -47,15 +47,13 @@ impl ServiceManager {
 
     /// Start a service by name
     pub fn start(&mut self, name: &str) -> Result<(), &'static str> {
-        let service = self.services.get_mut(name)
-            .ok_or("Service not found")?;
+        let service = self.services.get_mut(name).ok_or("Service not found")?;
         service.start()
     }
 
     /// Stop a service by name
     pub fn stop(&mut self, name: &str) -> Result<(), &'static str> {
-        let service = self.services.get_mut(name)
-            .ok_or("Service not found")?;
+        let service = self.services.get_mut(name).ok_or("Service not found")?;
         service.stop()
     }
 
@@ -72,7 +70,8 @@ impl ServiceManager {
 
     /// List all services
     pub fn list(&self) -> Vec<(&str, ServiceState)> {
-        self.services.iter()
+        self.services
+            .iter()
             .map(|(name, svc)| (name.as_str(), svc.state()))
             .collect()
     }
@@ -80,7 +79,9 @@ impl ServiceManager {
     /// Start all enabled services
     pub fn start_all(&mut self) {
         // Collect names first to avoid borrow issues
-        let names: Vec<String> = self.services.iter()
+        let names: Vec<String> = self
+            .services
+            .iter()
             .filter(|(_, svc)| svc.config().enabled)
             .map(|(name, _)| name.clone())
             .collect();

@@ -7,11 +7,11 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicU64, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use spin::{Mutex, RwLock};
 
+use crate::auth::{Gid, Uid};
 use crate::process::Pid;
-use crate::auth::{Uid, Gid};
 
 /// Namespace ID
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -30,21 +30,21 @@ impl NsId {
 #[repr(u32)]
 pub enum NsType {
     /// Process ID namespace
-    Pid = 0x20000000,      // CLONE_NEWPID
+    Pid = 0x20000000, // CLONE_NEWPID
     /// Network namespace
-    Net = 0x40000000,      // CLONE_NEWNET
+    Net = 0x40000000, // CLONE_NEWNET
     /// IPC namespace
-    Ipc = 0x08000000,      // CLONE_NEWIPC
+    Ipc = 0x08000000, // CLONE_NEWIPC
     /// UTS namespace (hostname)
-    Uts = 0x04000000,      // CLONE_NEWUTS
+    Uts = 0x04000000, // CLONE_NEWUTS
     /// Mount namespace
-    Mnt = 0x00020000,      // CLONE_NEWNS
+    Mnt = 0x00020000, // CLONE_NEWNS
     /// User namespace
-    User = 0x10000000,     // CLONE_NEWUSER
+    User = 0x10000000, // CLONE_NEWUSER
     /// Cgroup namespace
-    Cgroup = 0x02000000,   // CLONE_NEWCGROUP
+    Cgroup = 0x02000000, // CLONE_NEWCGROUP
     /// Time namespace
-    Time = 0x00000080,     // CLONE_NEWTIME
+    Time = 0x00000080, // CLONE_NEWTIME
 }
 
 impl NsType {
@@ -87,9 +87,14 @@ pub mod clone_flags {
     pub const CLONE_NEWCGROUP: u32 = 0x02000000;
     pub const CLONE_NEWTIME: u32 = 0x00000080;
 
-    pub const ALL_NS_FLAGS: u32 = CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC |
-                                   CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER |
-                                   CLONE_NEWCGROUP | CLONE_NEWTIME;
+    pub const ALL_NS_FLAGS: u32 = CLONE_NEWPID
+        | CLONE_NEWNET
+        | CLONE_NEWIPC
+        | CLONE_NEWUTS
+        | CLONE_NEWNS
+        | CLONE_NEWUSER
+        | CLONE_NEWCGROUP
+        | CLONE_NEWTIME;
 }
 
 // ============================================================================
@@ -191,7 +196,10 @@ impl PidNamespace {
 
     /// Check if process is init (PID 1) in this namespace
     pub fn is_init(&self, global_pid: Pid) -> bool {
-        self.init_pid.lock().map(|p| p == global_pid).unwrap_or(false)
+        self.init_pid
+            .lock()
+            .map(|p| p == global_pid)
+            .unwrap_or(false)
     }
 }
 
@@ -266,7 +274,7 @@ impl NetNamespace {
             index: 1,
             mac: [0; 6],
             ipv4: Some((0x7f000001, 8)), // 127.0.0.1/8
-            flags: 0x49, // IFF_UP | IFF_LOOPBACK | IFF_RUNNING
+            flags: 0x49,                 // IFF_UP | IFF_LOOPBACK | IFF_RUNNING
         });
 
         ns
@@ -301,7 +309,11 @@ impl NetNamespace {
 
     /// Get interface by name
     pub fn get_interface(&self, name: &str) -> Option<NetInterface> {
-        self.interfaces.read().iter().find(|i| i.name == name).cloned()
+        self.interfaces
+            .read()
+            .iter()
+            .find(|i| i.name == name)
+            .cloned()
     }
 
     /// Add route
@@ -315,7 +327,9 @@ impl NetNamespace {
         let mut best: Option<&Route> = None;
 
         for route in routes.iter() {
-            let mask = if route.prefix_len == 0 { 0 } else {
+            let mask = if route.prefix_len == 0 {
+                0
+            } else {
                 !0u32 << (32 - route.prefix_len)
             };
             if (dest & mask) == (route.dest & mask) {
@@ -596,7 +610,11 @@ impl UserNamespace {
         })
     }
 
-    pub fn create_child(parent: Arc<Self>, owner_uid: Uid, owner_gid: Gid) -> Result<Arc<Self>, NsError> {
+    pub fn create_child(
+        parent: Arc<Self>,
+        owner_uid: Uid,
+        owner_gid: Gid,
+    ) -> Result<Arc<Self>, NsError> {
         if parent.level >= 32 {
             return Err(NsError::NestingTooDeep);
         }
@@ -642,7 +660,10 @@ impl UserNamespace {
         }
 
         for (ns_gid, host_gid, count) in &mappings {
-            if *count == 0 || ns_gid.checked_add(*count).is_none() || host_gid.checked_add(*count).is_none() {
+            if *count == 0
+                || ns_gid.checked_add(*count).is_none()
+                || host_gid.checked_add(*count).is_none()
+            {
                 return Err(NsError::InvalidMapping);
             }
         }

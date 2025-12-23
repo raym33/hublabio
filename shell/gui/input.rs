@@ -20,7 +20,7 @@ pub struct Modifiers {
     pub shift: bool,
     pub ctrl: bool,
     pub alt: bool,
-    pub meta: bool,  // Super/Windows/Command key
+    pub meta: bool, // Super/Windows/Command key
 }
 
 impl Modifiers {
@@ -61,10 +61,7 @@ pub struct TouchPoint {
 #[derive(Clone, Debug)]
 pub enum InputEvent {
     /// Mouse moved
-    MouseMove {
-        x: i32,
-        y: i32,
-    },
+    MouseMove { x: i32, y: i32 },
     /// Mouse button state changed
     MouseButton {
         x: i32,
@@ -73,12 +70,7 @@ pub enum InputEvent {
         pressed: bool,
     },
     /// Mouse wheel scrolled
-    Scroll {
-        x: i32,
-        y: i32,
-        dx: i32,
-        dy: i32,
-    },
+    Scroll { x: i32, y: i32, dx: i32, dy: i32 },
     /// Key state changed
     Key {
         scancode: u8,
@@ -86,20 +78,14 @@ pub enum InputEvent {
         modifiers: Modifiers,
     },
     /// Character input (after keyboard processing)
-    Char {
-        c: char,
-    },
+    Char { c: char },
     /// Touch event
     Touch {
         points: [Option<TouchPoint>; 10],
         count: usize,
     },
     /// Single touch (simplified)
-    SingleTouch {
-        x: i32,
-        y: i32,
-        phase: TouchPhase,
-    },
+    SingleTouch { x: i32, y: i32, phase: TouchPhase },
 }
 
 /// Input state tracker
@@ -140,7 +126,12 @@ impl InputState {
                 self.mouse_x = *x;
                 self.mouse_y = *y;
             }
-            InputEvent::MouseButton { x, y, button, pressed } => {
+            InputEvent::MouseButton {
+                x,
+                y,
+                button,
+                pressed,
+            } => {
                 self.mouse_x = *x;
                 self.mouse_y = *y;
                 match button {
@@ -150,7 +141,11 @@ impl InputState {
                     _ => {}
                 }
             }
-            InputEvent::Key { scancode, pressed, modifiers } => {
+            InputEvent::Key {
+                scancode,
+                pressed,
+                modifiers,
+            } => {
                 if (*scancode as usize) < 256 {
                     self.keys[*scancode as usize] = *pressed;
                 }
@@ -159,29 +154,27 @@ impl InputState {
             InputEvent::Touch { points, count: _ } => {
                 self.touches = *points;
             }
-            InputEvent::SingleTouch { x, y, phase } => {
-                match phase {
-                    TouchPhase::Started => {
-                        self.touches[0] = Some(TouchPoint {
-                            id: 0,
-                            x: *x,
-                            y: *y,
-                            phase: *phase,
-                            pressure: 1.0,
-                        });
-                    }
-                    TouchPhase::Moved => {
-                        if let Some(ref mut touch) = self.touches[0] {
-                            touch.x = *x;
-                            touch.y = *y;
-                            touch.phase = *phase;
-                        }
-                    }
-                    TouchPhase::Ended | TouchPhase::Cancelled => {
-                        self.touches[0] = None;
+            InputEvent::SingleTouch { x, y, phase } => match phase {
+                TouchPhase::Started => {
+                    self.touches[0] = Some(TouchPoint {
+                        id: 0,
+                        x: *x,
+                        y: *y,
+                        phase: *phase,
+                        pressure: 1.0,
+                    });
+                }
+                TouchPhase::Moved => {
+                    if let Some(ref mut touch) = self.touches[0] {
+                        touch.x = *x;
+                        touch.y = *y;
+                        touch.phase = *phase;
                     }
                 }
-            }
+                TouchPhase::Ended | TouchPhase::Cancelled => {
+                    self.touches[0] = None;
+                }
+            },
             _ => {}
         }
     }
@@ -203,7 +196,8 @@ impl InputState {
 
     /// Get first touch position
     pub fn first_touch(&self) -> Option<Point> {
-        self.touches.iter()
+        self.touches
+            .iter()
             .find_map(|t| t.as_ref())
             .map(|t| Point::new(t.x, t.y))
     }
@@ -242,16 +236,56 @@ pub struct GestureRecognizer {
 /// Detected gesture
 #[derive(Clone, Debug)]
 pub enum Gesture {
-    Tap { x: i32, y: i32 },
-    DoubleTap { x: i32, y: i32 },
-    LongPress { x: i32, y: i32 },
-    SwipeUp { start_x: i32, start_y: i32, end_x: i32, end_y: i32 },
-    SwipeDown { start_x: i32, start_y: i32, end_x: i32, end_y: i32 },
-    SwipeLeft { start_x: i32, start_y: i32, end_x: i32, end_y: i32 },
-    SwipeRight { start_x: i32, start_y: i32, end_x: i32, end_y: i32 },
-    PinchIn { center_x: i32, center_y: i32, scale: f32 },
-    PinchOut { center_x: i32, center_y: i32, scale: f32 },
-    Pan { dx: i32, dy: i32 },
+    Tap {
+        x: i32,
+        y: i32,
+    },
+    DoubleTap {
+        x: i32,
+        y: i32,
+    },
+    LongPress {
+        x: i32,
+        y: i32,
+    },
+    SwipeUp {
+        start_x: i32,
+        start_y: i32,
+        end_x: i32,
+        end_y: i32,
+    },
+    SwipeDown {
+        start_x: i32,
+        start_y: i32,
+        end_x: i32,
+        end_y: i32,
+    },
+    SwipeLeft {
+        start_x: i32,
+        start_y: i32,
+        end_x: i32,
+        end_y: i32,
+    },
+    SwipeRight {
+        start_x: i32,
+        start_y: i32,
+        end_x: i32,
+        end_y: i32,
+    },
+    PinchIn {
+        center_x: i32,
+        center_y: i32,
+        scale: f32,
+    },
+    PinchOut {
+        center_x: i32,
+        center_y: i32,
+        scale: f32,
+    },
+    Pan {
+        dx: i32,
+        dy: i32,
+    },
 }
 
 impl GestureRecognizer {
@@ -309,9 +343,11 @@ impl GestureRecognizer {
                                     if let Some((lx, ly, last_time)) = self.last_tap {
                                         let ldx = (*x - lx).abs();
                                         let ldy = (*y - ly).abs();
-                                        if ldx <= self.double_tap_threshold &&
-                                           ldy <= self.double_tap_threshold &&
-                                           current_time_ms - last_time < self.double_tap_timeout_ms {
+                                        if ldx <= self.double_tap_threshold
+                                            && ldy <= self.double_tap_threshold
+                                            && current_time_ms - last_time
+                                                < self.double_tap_timeout_ms
+                                        {
                                             gesture = Some(Gesture::DoubleTap { x: *x, y: *y });
                                             self.last_tap = None;
                                         } else {
@@ -338,25 +374,33 @@ impl GestureRecognizer {
                                     if adx > ady {
                                         if dx > 0 {
                                             gesture = Some(Gesture::SwipeRight {
-                                                start_x: sx, start_y: sy,
-                                                end_x: *x, end_y: *y
+                                                start_x: sx,
+                                                start_y: sy,
+                                                end_x: *x,
+                                                end_y: *y,
                                             });
                                         } else {
                                             gesture = Some(Gesture::SwipeLeft {
-                                                start_x: sx, start_y: sy,
-                                                end_x: *x, end_y: *y
+                                                start_x: sx,
+                                                start_y: sy,
+                                                end_x: *x,
+                                                end_y: *y,
                                             });
                                         }
                                     } else {
                                         if dy > 0 {
                                             gesture = Some(Gesture::SwipeDown {
-                                                start_x: sx, start_y: sy,
-                                                end_x: *x, end_y: *y
+                                                start_x: sx,
+                                                start_y: sy,
+                                                end_x: *x,
+                                                end_y: *y,
                                             });
                                         } else {
                                             gesture = Some(Gesture::SwipeUp {
-                                                start_x: sx, start_y: sy,
-                                                end_x: *x, end_y: *y
+                                                start_x: sx,
+                                                start_y: sy,
+                                                end_x: *x,
+                                                end_y: *y,
                                             });
                                         }
                                     }
@@ -375,7 +419,7 @@ impl GestureRecognizer {
                     }
                 }
             }
-            _ => None
+            _ => None,
         }
     }
 

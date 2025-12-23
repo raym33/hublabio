@@ -152,12 +152,21 @@ impl LinearLayout {
     }
 
     /// Calculate bounds for items
-    pub fn layout(&self, container: Rect, items: &[LayoutItem], content_sizes: &[(u32, u32)]) -> Vec<Rect> {
+    pub fn layout(
+        &self,
+        container: Rect,
+        items: &[LayoutItem],
+        content_sizes: &[(u32, u32)],
+    ) -> Vec<Rect> {
         let mut results = Vec::new();
 
         // Calculate available space
-        let available_width = container.width.saturating_sub(self.padding.1 + self.padding.3);
-        let available_height = container.height.saturating_sub(self.padding.0 + self.padding.2);
+        let available_width = container
+            .width
+            .saturating_sub(self.padding.1 + self.padding.3);
+        let available_height = container
+            .height
+            .saturating_sub(self.padding.0 + self.padding.2);
 
         let content_x = container.x + self.padding.3 as i32;
         let content_y = container.y + self.padding.0 as i32;
@@ -173,10 +182,18 @@ impl LinearLayout {
                     let content_w = content_sizes.get(i).map(|(w, _)| *w).unwrap_or(0);
 
                     match item.width {
-                        SizeConstraint::Fixed(w) => total_fixed += w + item.margin.1 + item.margin.3,
-                        SizeConstraint::Percent(p) => total_fixed += ((available_width as f32 * p) as u32) + item.margin.1 + item.margin.3,
+                        SizeConstraint::Fixed(w) => {
+                            total_fixed += w + item.margin.1 + item.margin.3
+                        }
+                        SizeConstraint::Percent(p) => {
+                            total_fixed += ((available_width as f32 * p) as u32)
+                                + item.margin.1
+                                + item.margin.3
+                        }
                         SizeConstraint::Fill(w) => total_fill_weight += w,
-                        SizeConstraint::FitContent => total_fixed += content_w + item.margin.1 + item.margin.3,
+                        SizeConstraint::FitContent => {
+                            total_fixed += content_w + item.margin.1 + item.margin.3
+                        }
                     }
                 }
 
@@ -205,7 +222,9 @@ impl LinearLayout {
                     let item_height = match item.height {
                         SizeConstraint::Fixed(h) => h,
                         SizeConstraint::Percent(p) => (available_height as f32 * p) as u32,
-                        SizeConstraint::Fill(_) => available_height.saturating_sub(item.margin.0 + item.margin.2),
+                        SizeConstraint::Fill(_) => {
+                            available_height.saturating_sub(item.margin.0 + item.margin.2)
+                        }
                         SizeConstraint::FitContent => content_h,
                     }
                     .clamp(item.min_size.1, item.max_size.1);
@@ -213,14 +232,21 @@ impl LinearLayout {
                     let item_x = x + item.margin.3 as i32;
                     let item_y = match item.v_align {
                         Alignment::Start => content_y + item.margin.0 as i32,
-                        Alignment::Center => content_y + ((available_height - item_height) / 2) as i32,
-                        Alignment::End => content_y + (available_height - item_height - item.margin.2) as i32,
+                        Alignment::Center => {
+                            content_y + ((available_height - item_height) / 2) as i32
+                        }
+                        Alignment::End => {
+                            content_y + (available_height - item_height - item.margin.2) as i32
+                        }
                         Alignment::Stretch => content_y + item.margin.0 as i32,
                     };
 
                     results.push(Rect::new(item_x, item_y, item_width, item_height));
 
-                    x += item.margin.3 as i32 + item_width as i32 + item.margin.1 as i32 + self.spacing as i32;
+                    x += item.margin.3 as i32
+                        + item_width as i32
+                        + item.margin.1 as i32
+                        + self.spacing as i32;
                 }
             }
 
@@ -234,10 +260,18 @@ impl LinearLayout {
                     let content_h = content_sizes.get(i).map(|(_, h)| *h).unwrap_or(0);
 
                     match item.height {
-                        SizeConstraint::Fixed(h) => total_fixed += h + item.margin.0 + item.margin.2,
-                        SizeConstraint::Percent(p) => total_fixed += ((available_height as f32 * p) as u32) + item.margin.0 + item.margin.2,
+                        SizeConstraint::Fixed(h) => {
+                            total_fixed += h + item.margin.0 + item.margin.2
+                        }
+                        SizeConstraint::Percent(p) => {
+                            total_fixed += ((available_height as f32 * p) as u32)
+                                + item.margin.0
+                                + item.margin.2
+                        }
                         SizeConstraint::Fill(w) => total_fill_weight += w,
-                        SizeConstraint::FitContent => total_fixed += content_h + item.margin.0 + item.margin.2,
+                        SizeConstraint::FitContent => {
+                            total_fixed += content_h + item.margin.0 + item.margin.2
+                        }
                     }
                 }
 
@@ -252,7 +286,9 @@ impl LinearLayout {
                     let item_width = match item.width {
                         SizeConstraint::Fixed(w) => w,
                         SizeConstraint::Percent(p) => (available_width as f32 * p) as u32,
-                        SizeConstraint::Fill(_) => available_width.saturating_sub(item.margin.1 + item.margin.3),
+                        SizeConstraint::Fill(_) => {
+                            available_width.saturating_sub(item.margin.1 + item.margin.3)
+                        }
                         SizeConstraint::FitContent => content_w,
                     }
                     .clamp(item.min_size.0, item.max_size.0);
@@ -273,15 +309,22 @@ impl LinearLayout {
 
                     let item_x = match item.h_align {
                         Alignment::Start => content_x + item.margin.3 as i32,
-                        Alignment::Center => content_x + ((available_width - item_width) / 2) as i32,
-                        Alignment::End => content_x + (available_width - item_width - item.margin.1) as i32,
+                        Alignment::Center => {
+                            content_x + ((available_width - item_width) / 2) as i32
+                        }
+                        Alignment::End => {
+                            content_x + (available_width - item_width - item.margin.1) as i32
+                        }
                         Alignment::Stretch => content_x + item.margin.3 as i32,
                     };
                     let item_y = y + item.margin.0 as i32;
 
                     results.push(Rect::new(item_x, item_y, item_width, item_height));
 
-                    y += item.margin.0 as i32 + item_height as i32 + item.margin.2 as i32 + self.spacing as i32;
+                    y += item.margin.0 as i32
+                        + item_height as i32
+                        + item.margin.2 as i32
+                        + self.spacing as i32;
                 }
             }
         }
@@ -325,11 +368,20 @@ impl GridLayout {
     }
 
     /// Calculate bounds for items
-    pub fn layout(&self, container: Rect, item_count: usize, content_sizes: &[(u32, u32)]) -> Vec<Rect> {
+    pub fn layout(
+        &self,
+        container: Rect,
+        item_count: usize,
+        content_sizes: &[(u32, u32)],
+    ) -> Vec<Rect> {
         let mut results = Vec::new();
 
-        let available_width = container.width.saturating_sub(self.padding.1 + self.padding.3);
-        let available_height = container.height.saturating_sub(self.padding.0 + self.padding.2);
+        let available_width = container
+            .width
+            .saturating_sub(self.padding.1 + self.padding.3);
+        let available_height = container
+            .height
+            .saturating_sub(self.padding.0 + self.padding.2);
 
         let content_x = container.x + self.padding.3 as i32;
         let content_y = container.y + self.padding.0 as i32;
@@ -337,7 +389,9 @@ impl GridLayout {
         let total_h_spacing = self.h_spacing * (self.columns - 1);
         let col_width = match self.column_width {
             SizeConstraint::Fixed(w) => w,
-            SizeConstraint::Fill(_) => (available_width.saturating_sub(total_h_spacing)) / self.columns,
+            SizeConstraint::Fill(_) => {
+                (available_width.saturating_sub(total_h_spacing)) / self.columns
+            }
             _ => (available_width.saturating_sub(total_h_spacing)) / self.columns,
         };
 

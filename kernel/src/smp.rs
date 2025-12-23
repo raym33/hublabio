@@ -4,10 +4,10 @@
 //! Handles CPU detection, secondary core boot, per-CPU data,
 //! and inter-processor interrupts (IPI).
 
-use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
-use core::arch::asm;
-use alloc::vec::Vec;
 use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::arch::asm;
+use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use spin::{Mutex, RwLock};
 
 /// Maximum number of CPUs supported
@@ -135,8 +135,8 @@ impl PerCpu {
 
     /// Check if preemption is enabled
     pub fn is_preemptible(&self) -> bool {
-        self.preempt_count.load(Ordering::Acquire) == 0 &&
-            !self.in_interrupt.load(Ordering::Acquire)
+        self.preempt_count.load(Ordering::Acquire) == 0
+            && !self.in_interrupt.load(Ordering::Acquire)
     }
 }
 
@@ -483,9 +483,7 @@ fn init_gic_cpu_interface() {
     // We just need to enable the CPU interface
 
     let gicc = unsafe {
-        core::ptr::read_volatile(
-            &crate::arch::interrupt::gic::GICC_BASE as *const _ as *const u64
-        )
+        core::ptr::read_volatile(&crate::arch::interrupt::gic::GICC_BASE as *const _ as *const u64)
     } as usize;
 
     if gicc == 0 {
@@ -584,7 +582,9 @@ pub fn send_ipi(target_cpu: u32, ipi: u32) {
     }
 
     // Mark IPI as pending
-    PER_CPU[target_cpu as usize].ipi_pending.fetch_or(1 << ipi, Ordering::Release);
+    PER_CPU[target_cpu as usize]
+        .ipi_pending
+        .fetch_or(1 << ipi, Ordering::Release);
 
     // Send SGI via GIC
     send_sgi(target_cpu, SGI_BASE + ipi);
@@ -616,9 +616,7 @@ fn send_sgi(target_cpu: u32, sgi: u32) {
     const GICD_SGIR: usize = 0xF00;
 
     let gicd = unsafe {
-        core::ptr::read_volatile(
-            &crate::arch::interrupt::gic::GICD_BASE as *const _ as *const u64
-        )
+        core::ptr::read_volatile(&crate::arch::interrupt::gic::GICD_BASE as *const _ as *const u64)
     } as usize;
 
     if gicd == 0 {
@@ -674,14 +672,18 @@ fn handle_ipi(sgi: u32) {
             current().set_state(CpuState::Halted);
             crate::arch::disable_interrupts();
             loop {
-                unsafe { asm!("wfi"); }
+                unsafe {
+                    asm!("wfi");
+                }
             }
         }
         _ => {}
     }
 
     // Clear pending flag
-    current().ipi_pending.fetch_and(!(1 << ipi), Ordering::Release);
+    current()
+        .ipi_pending
+        .fetch_and(!(1 << ipi), Ordering::Release);
 }
 
 /// Process any pending IPIs for this CPU
@@ -785,7 +787,9 @@ pub fn halt_all_cpus() {
     // Halt this CPU
     current().set_state(CpuState::Halted);
     loop {
-        unsafe { asm!("wfi"); }
+        unsafe {
+            asm!("wfi");
+        }
     }
 }
 

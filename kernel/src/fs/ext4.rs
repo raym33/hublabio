@@ -4,14 +4,14 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec::Vec;
-use alloc::vec;
 use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use spin::RwLock;
-use core::sync::atomic::{AtomicU32, AtomicU64, AtomicBool, Ordering};
 
-use super::{Filesystem, FileHandle, DirEntry, BlockDevice};
-use crate::vfs::{FileType, FileStat, FilePermissions, OpenFlags, VfsError};
+use super::{BlockDevice, DirEntry, FileHandle, Filesystem};
+use crate::vfs::{FilePermissions, FileStat, FileType, OpenFlags, VfsError};
 
 /// ext4 superblock offset
 const SUPERBLOCK_OFFSET: u64 = 1024;
@@ -186,7 +186,7 @@ struct Ext4Inode {
     i_blocks_lo: u32,
     i_flags: u32,
     i_osd1: u32,
-    i_block: [u32; 15],  // Block pointers or extent tree
+    i_block: [u32; 15], // Block pointers or extent tree
     i_generation: u32,
     i_file_acl_lo: u32,
     i_size_high: u32,
@@ -315,18 +315,18 @@ const EXT4_EXTENT_MAGIC: u16 = 0xF30A;
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Ext4Extent {
-    ee_block: u32,      // First file block covered
-    ee_len: u16,        // Number of blocks covered
-    ee_start_hi: u16,   // High 16 bits of physical block
-    ee_start_lo: u32,   // Low 32 bits of physical block
+    ee_block: u32,    // First file block covered
+    ee_len: u16,      // Number of blocks covered
+    ee_start_hi: u16, // High 16 bits of physical block
+    ee_start_lo: u32, // Low 32 bits of physical block
 }
 
 /// Extent index (internal node)
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Ext4ExtentIdx {
-    ei_block: u32,      // Index covers from this block
-    ei_leaf_lo: u32,    // Pointer to next level
+    ei_block: u32,   // Index covers from this block
+    ei_leaf_lo: u32, // Pointer to next level
     ei_leaf_hi: u16,
     ei_unused: u16,
 }
@@ -396,7 +396,7 @@ enum TxState {
 struct Transaction {
     tid: u32,
     state: TxState,
-    blocks: Vec<(u64, Vec<u8>)>,  // (block_num, data)
+    blocks: Vec<(u64, Vec<u8>)>, // (block_num, data)
     modified_inodes: Vec<u32>,
 }
 
@@ -522,12 +522,22 @@ impl Ext4Fs {
         }
 
         let block_size = 1024u32 << sb.s_log_block_size;
-        let inode_size = if sb.s_rev_level >= 1 { sb.s_inode_size as u32 } else { 128 };
-        let group_desc_size = if sb.s_feature_incompat & feature_incompat::_64BIT != 0 { 64 } else { 32 };
+        let inode_size = if sb.s_rev_level >= 1 {
+            sb.s_inode_size as u32
+        } else {
+            128
+        };
+        let group_desc_size = if sb.s_feature_incompat & feature_incompat::_64BIT != 0 {
+            64
+        } else {
+            32
+        };
 
         let total_blocks = sb.s_blocks_count_lo as u64 | ((sb.s_blocks_count_hi as u64) << 32);
-        let free_blocks = sb.s_free_blocks_count_lo as u64 | ((sb.s_free_blocks_count_hi as u64) << 32);
-        let groups_count = (total_blocks + sb.s_blocks_per_group as u64 - 1) / sb.s_blocks_per_group as u64;
+        let free_blocks =
+            sb.s_free_blocks_count_lo as u64 | ((sb.s_free_blocks_count_hi as u64) << 32);
+        let groups_count =
+            (total_blocks + sb.s_blocks_per_group as u64 - 1) / sb.s_blocks_per_group as u64;
 
         let has_journal = sb.s_feature_compat & feature_compat::HAS_JOURNAL != 0;
 
@@ -591,9 +601,7 @@ impl Ext4Fs {
 
         // Read journal superblock
         let data = self.read_block(start_block)?;
-        let jsb = unsafe {
-            core::ptr::read_unaligned(data.as_ptr() as *const JournalSuperblock)
-        };
+        let jsb = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const JournalSuperblock) };
 
         if jsb.s_header.h_magic != JBD2_MAGIC.to_be() {
             crate::kwarn!("ext4: Invalid journal magic, mounting read-only");
@@ -607,7 +615,9 @@ impl Ext4Fs {
 
         crate::kinfo!(
             "ext4: Journal: {} blocks, sequence {}, start block {}",
-            block_count, sequence, start
+            block_count,
+            sequence,
+            start
         );
 
         // Check if recovery is needed
@@ -699,9 +709,8 @@ impl Ext4Fs {
 
         let data = self.read_block(block)?;
 
-        let gd = unsafe {
-            core::ptr::read_unaligned(data[offset..].as_ptr() as *const Ext4GroupDesc)
-        };
+        let gd =
+            unsafe { core::ptr::read_unaligned(data[offset..].as_ptr() as *const Ext4GroupDesc) };
 
         self.group_desc_cache.write().insert(group, gd);
 
@@ -717,10 +726,7 @@ impl Ext4Fs {
         let mut data = self.read_block(block)?;
 
         unsafe {
-            core::ptr::write_unaligned(
-                data[offset..].as_mut_ptr() as *mut Ext4GroupDesc,
-                *gd
-            );
+            core::ptr::write_unaligned(data[offset..].as_mut_ptr() as *mut Ext4GroupDesc, *gd);
         }
 
         self.write_block(block, &data)?;
@@ -741,8 +747,7 @@ impl Ext4Fs {
         let index = (ino - 1) % self.inodes_per_group;
 
         let gd = self.read_group_desc(group)?;
-        let inode_table = gd.bg_inode_table_lo as u64 |
-            ((gd.bg_inode_table_hi as u64) << 32);
+        let inode_table = gd.bg_inode_table_lo as u64 | ((gd.bg_inode_table_hi as u64) << 32);
 
         let inodes_per_block = self.block_size / self.inode_size;
         let block = inode_table + (index / inodes_per_block) as u64;
@@ -750,9 +755,8 @@ impl Ext4Fs {
 
         let data = self.read_block(block)?;
 
-        let inode = unsafe {
-            core::ptr::read_unaligned(data[offset..].as_ptr() as *const Ext4Inode)
-        };
+        let inode =
+            unsafe { core::ptr::read_unaligned(data[offset..].as_ptr() as *const Ext4Inode) };
 
         // Cache it
         self.inode_cache.write().insert(ino, inode);
@@ -770,8 +774,7 @@ impl Ext4Fs {
         let index = (ino - 1) % self.inodes_per_group;
 
         let gd = self.read_group_desc(group)?;
-        let inode_table = gd.bg_inode_table_lo as u64 |
-            ((gd.bg_inode_table_hi as u64) << 32);
+        let inode_table = gd.bg_inode_table_lo as u64 | ((gd.bg_inode_table_hi as u64) << 32);
 
         let inodes_per_block = self.block_size / self.inode_size;
         let block = inode_table + (index / inodes_per_block) as u64;
@@ -780,10 +783,7 @@ impl Ext4Fs {
         let mut data = self.read_block(block)?;
 
         unsafe {
-            core::ptr::write_unaligned(
-                data[offset..].as_mut_ptr() as *mut Ext4Inode,
-                *inode
-            );
+            core::ptr::write_unaligned(data[offset..].as_mut_ptr() as *mut Ext4Inode, *inode);
         }
 
         self.write_block(block, &data)?;
@@ -807,16 +807,16 @@ impl Ext4Fs {
         for group in groups_to_try {
             let mut gd = self.read_group_desc(group)?;
 
-            let free_blocks = gd.bg_free_blocks_count_lo as u32 |
-                ((gd.bg_free_blocks_count_hi as u32) << 16);
+            let free_blocks =
+                gd.bg_free_blocks_count_lo as u32 | ((gd.bg_free_blocks_count_hi as u32) << 16);
 
             if free_blocks == 0 {
                 continue;
             }
 
             // Read block bitmap
-            let bitmap_block = gd.bg_block_bitmap_lo as u64 |
-                ((gd.bg_block_bitmap_hi as u64) << 32);
+            let bitmap_block =
+                gd.bg_block_bitmap_lo as u64 | ((gd.bg_block_bitmap_hi as u64) << 32);
             let mut bitmap = self.read_block(bitmap_block)?;
 
             // Find free block
@@ -841,7 +841,9 @@ impl Ext4Fs {
                             self.write_group_desc(group, &gd)?;
 
                             // Update allocator stats
-                            self.block_allocator.free_blocks.fetch_sub(1, Ordering::SeqCst);
+                            self.block_allocator
+                                .free_blocks
+                                .fetch_sub(1, Ordering::SeqCst);
 
                             return Ok(block);
                         }
@@ -866,8 +868,7 @@ impl Ext4Fs {
         let mut gd = self.read_group_desc(group)?;
 
         // Read block bitmap
-        let bitmap_block = gd.bg_block_bitmap_lo as u64 |
-            ((gd.bg_block_bitmap_hi as u64) << 32);
+        let bitmap_block = gd.bg_block_bitmap_lo as u64 | ((gd.bg_block_bitmap_hi as u64) << 32);
         let mut bitmap = self.read_block(bitmap_block)?;
 
         // Clear bit
@@ -877,15 +878,17 @@ impl Ext4Fs {
         self.write_block(bitmap_block, &bitmap)?;
 
         // Update group descriptor
-        let free_blocks = gd.bg_free_blocks_count_lo as u32 |
-            ((gd.bg_free_blocks_count_hi as u32) << 16);
+        let free_blocks =
+            gd.bg_free_blocks_count_lo as u32 | ((gd.bg_free_blocks_count_hi as u32) << 16);
         let new_free = free_blocks + 1;
         gd.bg_free_blocks_count_lo = new_free as u16;
         gd.bg_free_blocks_count_hi = (new_free >> 16) as u16;
         self.write_group_desc(group, &gd)?;
 
         // Update allocator stats
-        self.block_allocator.free_blocks.fetch_add(1, Ordering::SeqCst);
+        self.block_allocator
+            .free_blocks
+            .fetch_add(1, Ordering::SeqCst);
 
         Ok(())
     }
@@ -899,16 +902,16 @@ impl Ext4Fs {
         for group in 0..self.groups_count {
             let mut gd = self.read_group_desc(group)?;
 
-            let free_inodes = gd.bg_free_inodes_count_lo as u32 |
-                ((gd.bg_free_inodes_count_hi as u32) << 16);
+            let free_inodes =
+                gd.bg_free_inodes_count_lo as u32 | ((gd.bg_free_inodes_count_hi as u32) << 16);
 
             if free_inodes == 0 {
                 continue;
             }
 
             // Read inode bitmap
-            let bitmap_block = gd.bg_inode_bitmap_lo as u64 |
-                ((gd.bg_inode_bitmap_hi as u64) << 32);
+            let bitmap_block =
+                gd.bg_inode_bitmap_lo as u64 | ((gd.bg_inode_bitmap_hi as u64) << 32);
             let mut bitmap = self.read_block(bitmap_block)?;
 
             // Find free inode
@@ -934,8 +937,8 @@ impl Ext4Fs {
                             gd.bg_free_inodes_count_hi = (new_free >> 16) as u16;
 
                             if is_directory {
-                                let used_dirs = gd.bg_used_dirs_count_lo as u32 |
-                                    ((gd.bg_used_dirs_count_hi as u32) << 16);
+                                let used_dirs = gd.bg_used_dirs_count_lo as u32
+                                    | ((gd.bg_used_dirs_count_hi as u32) << 16);
                                 let new_dirs = used_dirs + 1;
                                 gd.bg_used_dirs_count_lo = new_dirs as u16;
                                 gd.bg_used_dirs_count_hi = (new_dirs >> 16) as u16;
@@ -944,7 +947,9 @@ impl Ext4Fs {
                             self.write_group_desc(group, &gd)?;
 
                             // Update allocator stats
-                            self.inode_allocator.free_inodes.fetch_sub(1, Ordering::SeqCst);
+                            self.inode_allocator
+                                .free_inodes
+                                .fetch_sub(1, Ordering::SeqCst);
 
                             return Ok(ino);
                         }
@@ -968,8 +973,7 @@ impl Ext4Fs {
         let mut gd = self.read_group_desc(group)?;
 
         // Read inode bitmap
-        let bitmap_block = gd.bg_inode_bitmap_lo as u64 |
-            ((gd.bg_inode_bitmap_hi as u64) << 32);
+        let bitmap_block = gd.bg_inode_bitmap_lo as u64 | ((gd.bg_inode_bitmap_hi as u64) << 32);
         let mut bitmap = self.read_block(bitmap_block)?;
 
         // Clear bit
@@ -979,15 +983,15 @@ impl Ext4Fs {
         self.write_block(bitmap_block, &bitmap)?;
 
         // Update group descriptor
-        let free_inodes = gd.bg_free_inodes_count_lo as u32 |
-            ((gd.bg_free_inodes_count_hi as u32) << 16);
+        let free_inodes =
+            gd.bg_free_inodes_count_lo as u32 | ((gd.bg_free_inodes_count_hi as u32) << 16);
         let new_free = free_inodes + 1;
         gd.bg_free_inodes_count_lo = new_free as u16;
         gd.bg_free_inodes_count_hi = (new_free >> 16) as u16;
 
         if is_directory {
-            let used_dirs = gd.bg_used_dirs_count_lo as u32 |
-                ((gd.bg_used_dirs_count_hi as u32) << 16);
+            let used_dirs =
+                gd.bg_used_dirs_count_lo as u32 | ((gd.bg_used_dirs_count_hi as u32) << 16);
             if used_dirs > 0 {
                 let new_dirs = used_dirs - 1;
                 gd.bg_used_dirs_count_lo = new_dirs as u16;
@@ -998,7 +1002,9 @@ impl Ext4Fs {
         self.write_group_desc(group, &gd)?;
 
         // Update allocator stats
-        self.inode_allocator.free_inodes.fetch_add(1, Ordering::SeqCst);
+        self.inode_allocator
+            .free_inodes
+            .fetch_add(1, Ordering::SeqCst);
 
         // Remove from cache
         self.inode_cache.write().remove(&ino);
@@ -1011,7 +1017,7 @@ impl Ext4Fs {
         let extent_data = unsafe {
             core::slice::from_raw_parts(
                 inode.i_block.as_ptr() as *const u8,
-                60  // 15 * 4 bytes
+                60, // 15 * 4 bytes
             )
         };
 
@@ -1020,9 +1026,8 @@ impl Ext4Fs {
 
     /// Lookup block in extent tree
     fn lookup_extent(&self, extent_data: &[u8], file_block: u64) -> Result<u64, VfsError> {
-        let header = unsafe {
-            core::ptr::read_unaligned(extent_data.as_ptr() as *const Ext4ExtentHeader)
-        };
+        let header =
+            unsafe { core::ptr::read_unaligned(extent_data.as_ptr() as *const Ext4ExtentHeader) };
 
         if header.eh_magic != EXT4_EXTENT_MAGIC {
             return Err(VfsError::InvalidPath);
@@ -1033,17 +1038,17 @@ impl Ext4Fs {
         if header.eh_depth == 0 {
             // Leaf node - search extents
             for i in 0..entries {
-                let offset = 12 + i * 12;  // Header is 12 bytes, extent is 12 bytes
+                let offset = 12 + i * 12; // Header is 12 bytes, extent is 12 bytes
                 let extent = unsafe {
                     core::ptr::read_unaligned(extent_data[offset..].as_ptr() as *const Ext4Extent)
                 };
 
                 let start = extent.ee_block as u64;
-                let len = (extent.ee_len & 0x7FFF) as u64;  // Mask uninitialized bit
+                let len = (extent.ee_len & 0x7FFF) as u64; // Mask uninitialized bit
 
                 if file_block >= start && file_block < start + len {
-                    let phys_start = extent.ee_start_lo as u64 |
-                        ((extent.ee_start_hi as u64) << 32);
+                    let phys_start =
+                        extent.ee_start_lo as u64 | ((extent.ee_start_hi as u64) << 32);
                     return Ok(phys_start + (file_block - start));
                 }
             }
@@ -1060,7 +1065,9 @@ impl Ext4Fs {
                 let next_block = if i + 1 < entries {
                     let next_offset = 12 + (i + 1) * 12;
                     let next_idx = unsafe {
-                        core::ptr::read_unaligned(extent_data[next_offset..].as_ptr() as *const Ext4ExtentIdx)
+                        core::ptr::read_unaligned(
+                            extent_data[next_offset..].as_ptr() as *const Ext4ExtentIdx
+                        )
                     };
                     next_idx.ei_block as u64
                 } else {
@@ -1068,8 +1075,7 @@ impl Ext4Fs {
                 };
 
                 if file_block >= idx.ei_block as u64 && file_block < next_block {
-                    let child_block = idx.ei_leaf_lo as u64 |
-                        ((idx.ei_leaf_hi as u64) << 32);
+                    let child_block = idx.ei_leaf_lo as u64 | ((idx.ei_leaf_hi as u64) << 32);
                     let child_data = self.read_block(child_block)?;
                     return self.lookup_extent(&child_data, file_block);
                 }
@@ -1080,7 +1086,12 @@ impl Ext4Fs {
     }
 
     /// Read inode data using block mapping
-    fn read_inode_data(&self, inode: &Ext4Inode, offset: u64, buf: &mut [u8]) -> Result<usize, VfsError> {
+    fn read_inode_data(
+        &self,
+        inode: &Ext4Inode,
+        offset: u64,
+        buf: &mut [u8],
+    ) -> Result<usize, VfsError> {
         let size = inode.i_size_lo as u64 | ((inode.i_size_high as u64) << 32);
 
         if offset >= size {
@@ -1108,7 +1119,9 @@ impl Ext4Fs {
                 // Traditional block mapping
                 if current_block < 12 {
                     let b = inode.i_block[current_block as usize];
-                    if b == 0 { break; }
+                    if b == 0 {
+                        break;
+                    }
                     b as u64
                 } else {
                     // Handle indirect blocks (simplified)
@@ -1190,7 +1203,8 @@ impl Ext4Fs {
 
             // Read existing block data (for partial writes)
             let mut data = if first_block && offset_in_block > 0 {
-                self.read_block(phys_block).unwrap_or_else(|_| vec![0u8; self.block_size as usize])
+                self.read_block(phys_block)
+                    .unwrap_or_else(|_| vec![0u8; self.block_size as usize])
             } else {
                 vec![0u8; self.block_size as usize]
             };
@@ -1243,9 +1257,8 @@ impl Ext4Fs {
         let mut pos = 0;
 
         while pos + 8 <= data.len() {
-            let entry = unsafe {
-                core::ptr::read_unaligned(data[pos..].as_ptr() as *const Ext4DirEntry)
-            };
+            let entry =
+                unsafe { core::ptr::read_unaligned(data[pos..].as_ptr() as *const Ext4DirEntry) };
 
             if entry.rec_len == 0 {
                 break;
@@ -1271,7 +1284,13 @@ impl Ext4Fs {
     }
 
     /// Add directory entry
-    fn add_dir_entry(&self, dir_ino: u32, name: &str, target_ino: u32, file_type: u8) -> Result<(), VfsError> {
+    fn add_dir_entry(
+        &self,
+        dir_ino: u32,
+        name: &str,
+        target_ino: u32,
+        file_type: u8,
+    ) -> Result<(), VfsError> {
         if self.readonly.load(Ordering::SeqCst) {
             return Err(VfsError::ReadOnly);
         }
@@ -1295,9 +1314,8 @@ impl Ext4Fs {
         let mut found = false;
 
         while pos + 8 <= dir_size {
-            let entry = unsafe {
-                core::ptr::read_unaligned(data[pos..].as_ptr() as *const Ext4DirEntry)
-            };
+            let entry =
+                unsafe { core::ptr::read_unaligned(data[pos..].as_ptr() as *const Ext4DirEntry) };
 
             if entry.rec_len == 0 {
                 break;
@@ -1320,7 +1338,7 @@ impl Ext4Fs {
                 unsafe {
                     core::ptr::write_unaligned(
                         data[pos..].as_mut_ptr() as *mut Ext4DirEntry,
-                        new_entry_data
+                        new_entry_data,
                     );
                 }
 
@@ -1335,7 +1353,7 @@ impl Ext4Fs {
                 unsafe {
                     core::ptr::write_unaligned(
                         data[new_pos..].as_mut_ptr() as *mut Ext4DirEntry,
-                        new_entry
+                        new_entry,
                     );
                 }
                 data[new_pos + 8..new_pos + 8 + name.len()].copy_from_slice(name.as_bytes());
@@ -1365,7 +1383,7 @@ impl Ext4Fs {
             unsafe {
                 core::ptr::write_unaligned(
                     data[new_pos..].as_mut_ptr() as *mut Ext4DirEntry,
-                    new_entry
+                    new_entry,
                 );
             }
             data[new_pos + 8..new_pos + 8 + name.len()].copy_from_slice(name.as_bytes());
@@ -1402,9 +1420,8 @@ impl Ext4Fs {
         let mut removed_ino = 0;
 
         while pos + 8 <= dir_size {
-            let entry = unsafe {
-                core::ptr::read_unaligned(data[pos..].as_ptr() as *const Ext4DirEntry)
-            };
+            let entry =
+                unsafe { core::ptr::read_unaligned(data[pos..].as_ptr() as *const Ext4DirEntry) };
 
             if entry.rec_len == 0 {
                 break;
@@ -1415,8 +1432,8 @@ impl Ext4Fs {
                 let name_end = name_start + entry.name_len as usize;
 
                 if name_end <= data.len() {
-                    let entry_name = core::str::from_utf8(&data[name_start..name_end])
-                        .unwrap_or("");
+                    let entry_name =
+                        core::str::from_utf8(&data[name_start..name_end]).unwrap_or("");
 
                     if entry_name == name {
                         removed_ino = entry.inode;
@@ -1434,19 +1451,16 @@ impl Ext4Fs {
                             unsafe {
                                 core::ptr::write_unaligned(
                                     data[pp..].as_mut_ptr() as *mut Ext4DirEntry,
-                                    updated
+                                    updated,
                                 );
                             }
                         } else {
                             // Just mark inode as 0
-                            let updated = Ext4DirEntry {
-                                inode: 0,
-                                ..entry
-                            };
+                            let updated = Ext4DirEntry { inode: 0, ..entry };
                             unsafe {
                                 core::ptr::write_unaligned(
                                     data[pos..].as_mut_ptr() as *mut Ext4DirEntry,
-                                    updated
+                                    updated,
                                 );
                             }
                         }
@@ -1602,7 +1616,10 @@ impl Ext4Fs {
             file_type: dir_type::DIR,
         };
         unsafe {
-            core::ptr::write_unaligned(dir_data[12..].as_mut_ptr() as *mut Ext4DirEntry, dotdot_entry);
+            core::ptr::write_unaligned(
+                dir_data[12..].as_mut_ptr() as *mut Ext4DirEntry,
+                dotdot_entry,
+            );
         }
         dir_data[20] = b'.';
         dir_data[21] = b'.';
@@ -1620,7 +1637,7 @@ impl Ext4Fs {
             i_mtime: now,
             i_dtime: 0,
             i_gid: 0,
-            i_links_count: 2,  // . and parent link
+            i_links_count: 2, // . and parent link
             i_blocks_lo: (self.block_size / 512) as u32,
             i_flags: 0,
             i_osd1: 0,
@@ -1678,11 +1695,14 @@ impl Ext4Fs {
                     h_sequence: tx.tid.to_be(),
                 };
                 unsafe {
-                    core::ptr::write_unaligned(desc_data.as_mut_ptr() as *mut JournalHeader, header);
+                    core::ptr::write_unaligned(
+                        desc_data.as_mut_ptr() as *mut JournalHeader,
+                        header,
+                    );
                 }
 
                 // Write tags for each block in transaction
-                let mut tag_offset = 12;  // After header
+                let mut tag_offset = 12; // After header
                 for (i, (block_num, _)) in tx.blocks.iter().enumerate() {
                     let flags = if i == tx.blocks.len() - 1 {
                         journal_tag_flags::LAST_TAG
@@ -1699,7 +1719,7 @@ impl Ext4Fs {
                     unsafe {
                         core::ptr::write_unaligned(
                             desc_data[tag_offset..].as_mut_ptr() as *mut JournalBlockTag,
-                            tag
+                            tag,
                         );
                     }
                     tag_offset += 8;
@@ -1728,7 +1748,10 @@ impl Ext4Fs {
                     h_sequence: tx.tid.to_be(),
                 };
                 unsafe {
-                    core::ptr::write_unaligned(commit_data.as_mut_ptr() as *mut JournalHeader, commit_header);
+                    core::ptr::write_unaligned(
+                        commit_data.as_mut_ptr() as *mut JournalHeader,
+                        commit_header,
+                    );
                 }
                 self.flush_block(commit_block, &commit_data)?;
 
@@ -2021,7 +2044,9 @@ impl Filesystem for Ext4Fs {
                     core::ptr::read_unaligned(data[pos..].as_ptr() as *const Ext4DirEntry)
                 };
 
-                if entry.rec_len == 0 { break; }
+                if entry.rec_len == 0 {
+                    break;
+                }
 
                 if entry.name_len == 2 && data[pos + 8] == b'.' && data[pos + 9] == b'.' {
                     let updated = Ext4DirEntry {
@@ -2031,7 +2056,7 @@ impl Filesystem for Ext4Fs {
                     unsafe {
                         core::ptr::write_unaligned(
                             data[pos..].as_mut_ptr() as *mut Ext4DirEntry,
-                            updated
+                            updated,
                         );
                     }
                     break;

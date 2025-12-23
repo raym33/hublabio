@@ -228,9 +228,10 @@ impl<'a> DependencyResolver<'a> {
             let mut made_progress = false;
 
             unresolved.retain(|svc| {
-                let deps_satisfied = svc.dependencies.iter().all(|dep| {
-                    resolved.iter().any(|r| r.name == *dep)
-                });
+                let deps_satisfied = svc
+                    .dependencies
+                    .iter()
+                    .all(|dep| resolved.iter().any(|r| r.name == *dep));
 
                 if deps_satisfied {
                     resolved.push(svc);

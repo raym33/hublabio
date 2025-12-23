@@ -1,0 +1,9 @@
+[package]
+name = "hublab-service-ai"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "AI Service for HubLab IO"
+
+[dependencies]

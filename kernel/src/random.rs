@@ -84,7 +84,8 @@ impl EntropyPool {
 
         // Decrement entropy estimate (conservative)
         let extracted = (buf.len() * 4).min(self.entropy_bits.load(Ordering::Relaxed) as usize);
-        self.entropy_bits.fetch_sub(extracted as u32, Ordering::Relaxed);
+        self.entropy_bits
+            .fetch_sub(extracted as u32, Ordering::Relaxed);
 
         // Increment generation
         self.generation.fetch_add(1, Ordering::Relaxed);
@@ -150,9 +151,8 @@ impl ChaChaState {
         for i in 0..8 {
             let idx = i * 4;
             if idx + 3 < key.len() {
-                state[4 + i] = u32::from_le_bytes([
-                    key[idx], key[idx + 1], key[idx + 2], key[idx + 3]
-                ]);
+                state[4 + i] =
+                    u32::from_le_bytes([key[idx], key[idx + 1], key[idx + 2], key[idx + 3]]);
             }
         }
 
@@ -329,7 +329,9 @@ pub fn add_disk_entropy(sector: u64, latency_ns: u64) {
 /// Add raw entropy data (from hardware RNG)
 pub fn add_raw_entropy(data: &[u8], bits: u32) {
     POOL.lock().add_entropy(data, bits);
-    STATS.entropy_added.fetch_add(data.len() as u64, Ordering::Relaxed);
+    STATS
+        .entropy_added
+        .fetch_add(data.len() as u64, Ordering::Relaxed);
 
     if POOL.lock().entropy_available() >= MIN_ENTROPY_BITS {
         WAITERS.wake_all();
@@ -392,7 +394,9 @@ pub fn get_random_bytes_blocking(buf: &mut [u8]) -> Result<usize, RandomError> {
     let mut pool = POOL.lock();
     pool.extract(buf);
 
-    STATS.bytes_generated.fetch_add(buf.len() as u64, Ordering::Relaxed);
+    STATS
+        .bytes_generated
+        .fetch_add(buf.len() as u64, Ordering::Relaxed);
 
     Ok(buf.len())
 }
@@ -412,7 +416,9 @@ pub fn get_random_bytes(buf: &mut [u8]) -> usize {
 
     pool.extract(buf);
 
-    STATS.bytes_generated.fetch_add(buf.len() as u64, Ordering::Relaxed);
+    STATS
+        .bytes_generated
+        .fetch_add(buf.len() as u64, Ordering::Relaxed);
 
     buf.len()
 }
@@ -487,8 +493,8 @@ impl RandomError {
     pub fn to_errno(&self) -> i32 {
         match self {
             RandomError::WouldBlock => -11, // EAGAIN
-            RandomError::Interrupted => -4,  // EINTR
-            RandomError::Invalid => -22,     // EINVAL
+            RandomError::Interrupted => -4, // EINTR
+            RandomError::Invalid => -22,    // EINVAL
         }
     }
 }
@@ -527,7 +533,9 @@ pub fn ioctl_random(cmd: u32, arg: usize) -> Result<i32, RandomError> {
     match cmd {
         RNDGETENTCNT => {
             let bits = POOL.lock().entropy_available();
-            unsafe { *(arg as *mut u32) = bits; }
+            unsafe {
+                *(arg as *mut u32) = bits;
+            }
             Ok(0)
         }
         RNDADDTOENTCNT => {
@@ -539,7 +547,7 @@ pub fn ioctl_random(cmd: u32, arg: usize) -> Result<i32, RandomError> {
             let current = POOL.lock().entropy_bits.load(Ordering::Relaxed);
             POOL.lock().entropy_bits.store(
                 current.saturating_add(bits).min(MAX_ENTROPY_BITS),
-                Ordering::Relaxed
+                Ordering::Relaxed,
             );
             Ok(0)
         }
@@ -625,8 +633,10 @@ pub fn init() {
         gather_hardware_entropy();
     }
 
-    crate::kprintln!("  Random/entropy pool initialized ({} bits)",
-                     POOL.lock().entropy_available());
+    crate::kprintln!(
+        "  Random/entropy pool initialized ({} bits)",
+        POOL.lock().entropy_available()
+    );
 }
 
 #[cfg(test)]

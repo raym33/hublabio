@@ -5,9 +5,9 @@
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use super::{Ipv4Address, MacAddress, InterfaceConfig, NetError};
 use super::tcp::SocketAddr;
 use super::udp;
+use super::{InterfaceConfig, Ipv4Address, MacAddress, NetError};
 
 /// DHCP ports
 pub const DHCP_SERVER_PORT: u16 = 67;
@@ -44,11 +44,11 @@ mod option {
 /// DHCP packet header
 #[repr(C, packed)]
 struct DhcpHeader {
-    op: u8,           // 1 = request, 2 = reply
-    htype: u8,        // Hardware type (1 = Ethernet)
-    hlen: u8,         // Hardware address length (6 for Ethernet)
+    op: u8,    // 1 = request, 2 = reply
+    htype: u8, // Hardware type (1 = Ethernet)
+    hlen: u8,  // Hardware address length (6 for Ethernet)
     hops: u8,
-    xid: [u8; 4],     // Transaction ID
+    xid: [u8; 4], // Transaction ID
     secs: [u8; 2],
     flags: [u8; 2],
     ciaddr: [u8; 4],  // Client IP
@@ -74,10 +74,10 @@ fn build_discover(mac: MacAddress) -> Vec<u8> {
     let mut packet = Vec::with_capacity(300);
 
     // Header
-    packet.push(1);  // op: BOOTREQUEST
-    packet.push(1);  // htype: Ethernet
-    packet.push(6);  // hlen
-    packet.push(0);  // hops
+    packet.push(1); // op: BOOTREQUEST
+    packet.push(1); // htype: Ethernet
+    packet.push(6); // hlen
+    packet.push(0); // hops
 
     packet.extend_from_slice(&xid.to_be_bytes());
     packet.extend_from_slice(&[0, 0]); // secs
@@ -133,10 +133,10 @@ fn build_request(mac: MacAddress, offered_ip: Ipv4Address, server_ip: Ipv4Addres
     let mut packet = Vec::with_capacity(300);
 
     // Header
-    packet.push(1);  // op: BOOTREQUEST
-    packet.push(1);  // htype: Ethernet
-    packet.push(6);  // hlen
-    packet.push(0);  // hops
+    packet.push(1); // op: BOOTREQUEST
+    packet.push(1); // htype: Ethernet
+    packet.push(6); // hlen
+    packet.push(0); // hops
 
     packet.extend_from_slice(&xid.to_be_bytes());
     packet.extend_from_slice(&[0, 0]); // secs
@@ -249,7 +249,10 @@ fn parse_response(data: &[u8]) -> Option<(u8, Ipv4Address, InterfaceConfig)> {
                 for j in (0..len).step_by(4) {
                     if j + 4 <= len {
                         config.dns_servers.push(Ipv4Address([
-                            value[j], value[j + 1], value[j + 2], value[j + 3]
+                            value[j],
+                            value[j + 1],
+                            value[j + 2],
+                            value[j + 3],
                         ]));
                     }
                 }
@@ -320,7 +323,11 @@ pub fn release(iface_name: &str, mac: MacAddress, ip: Ipv4Address) -> Result<(),
 }
 
 /// Renew DHCP lease
-pub fn renew(iface_name: &str, mac: MacAddress, ip: Ipv4Address) -> Result<InterfaceConfig, NetError> {
+pub fn renew(
+    iface_name: &str,
+    mac: MacAddress,
+    ip: Ipv4Address,
+) -> Result<InterfaceConfig, NetError> {
     crate::kinfo!("DHCP: Renewing lease for {} on {}", ip, iface_name);
     // Would send DHCPREQUEST unicast to server
     discover(iface_name, mac)

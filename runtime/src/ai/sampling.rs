@@ -160,8 +160,14 @@ impl Sampler {
         }
 
         // Softmax over filtered indices
-        let max_logit = indices.iter().map(|&i| logits[i]).fold(f32::NEG_INFINITY, f32::max);
-        let mut probs: Vec<f32> = indices.iter().map(|&i| (logits[i] - max_logit).exp()).collect();
+        let max_logit = indices
+            .iter()
+            .map(|&i| logits[i])
+            .fold(f32::NEG_INFINITY, f32::max);
+        let mut probs: Vec<f32> = indices
+            .iter()
+            .map(|&i| (logits[i] - max_logit).exp())
+            .collect();
         let sum: f32 = probs.iter().sum();
         for p in probs.iter_mut() {
             *p /= sum;

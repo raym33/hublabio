@@ -6,7 +6,7 @@
 use core::fmt::{self, Write};
 use spin::Mutex;
 
-use crate::drivers::{uart, framebuffer};
+use crate::drivers::{framebuffer, uart};
 
 /// Console output mode
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -260,7 +260,13 @@ pub fn log(level: LogLevel, args: fmt::Arguments) {
         LogLevel::Fatal => ("[FATAL]", ansi::MAGENTA),
     };
 
-    _print(format_args!("{}{}{} {}\n", color, prefix, ansi::RESET, args));
+    _print(format_args!(
+        "{}{}{} {}\n",
+        color,
+        prefix,
+        ansi::RESET,
+        args
+    ));
 }
 
 /// Debug log macro

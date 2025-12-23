@@ -5,7 +5,7 @@
 use core::alloc::{GlobalAlloc, Layout};
 use linked_list_allocator::LockedHeap;
 
-use super::{KERNEL_HEAP_START, KERNEL_HEAP_SIZE};
+use super::{KERNEL_HEAP_SIZE, KERNEL_HEAP_START};
 
 /// Heap statistics
 pub struct HeapStats {
@@ -32,7 +32,8 @@ pub fn stats(heap: &LockedHeap) -> HeapStats {
 /// # Safety
 /// Must only be called once during kernel initialization.
 pub unsafe fn init(heap: &LockedHeap) {
-    heap.lock().init(KERNEL_HEAP_START as *mut u8, KERNEL_HEAP_SIZE);
+    heap.lock()
+        .init(KERNEL_HEAP_START as *mut u8, KERNEL_HEAP_SIZE);
 }
 
 /// Grow the heap by allocating more physical frames

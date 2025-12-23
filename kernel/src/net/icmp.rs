@@ -3,13 +3,13 @@
 //! Handles ICMP messages including ping (echo request/reply),
 //! destination unreachable, time exceeded, etc.
 
-use alloc::vec::Vec;
 use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU16, AtomicU64, Ordering};
 use spin::Mutex;
 
+use super::ip::{self, calculate_checksum, Ipv4Header};
 use super::{Ipv4Address, NetError};
-use super::ip::{self, Ipv4Header, calculate_checksum};
 
 /// ICMP message types
 pub mod types {
@@ -200,13 +200,16 @@ pub fn ping(target: Ipv4Address, payload: &[u8]) -> Result<u16, NetError> {
     // Track request
     {
         let mut requests = PING_REQUESTS.lock();
-        requests.insert((identifier, sequence), PingRequest {
-            target,
-            identifier,
-            sequence,
-            sent_time: current_time(),
-            callback: None,
-        });
+        requests.insert(
+            (identifier, sequence),
+            PingRequest {
+                target,
+                identifier,
+                sequence,
+                sent_time: current_time(),
+                callback: None,
+            },
+        );
     }
 
     ICMP_STATS.lock().echo_requests_sent += 1;
@@ -230,13 +233,16 @@ pub fn ping_async(
     // Track request with callback
     {
         let mut requests = PING_REQUESTS.lock();
-        requests.insert((identifier, sequence), PingRequest {
-            target,
-            identifier,
-            sequence,
-            sent_time: current_time(),
-            callback: Some(callback),
-        });
+        requests.insert(
+            (identifier, sequence),
+            PingRequest {
+                target,
+                identifier,
+                sequence,
+                sent_time: current_time(),
+                callback: Some(callback),
+            },
+        );
     }
 
     ICMP_STATS.lock().echo_requests_sent += 1;
@@ -410,11 +416,7 @@ fn handle_dest_unreachable(
 }
 
 /// Handle time exceeded
-fn handle_time_exceeded(
-    ip_header: &Ipv4Header,
-    code: u8,
-    _payload: &[u8],
-) -> Result<(), NetError> {
+fn handle_time_exceeded(ip_header: &Ipv4Header, code: u8, _payload: &[u8]) -> Result<(), NetError> {
     let reason = match code {
         time_exceeded::TTL_EXCEEDED => "TTL exceeded in transit",
         time_exceeded::FRAGMENT_REASSEMBLY => "Fragment reassembly time exceeded",

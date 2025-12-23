@@ -19,32 +19,32 @@ pub mod base {
 
 /// GPIO register offsets
 pub mod regs {
-    pub const GPFSEL0: usize = 0x00;   // GPIO Function Select 0
+    pub const GPFSEL0: usize = 0x00; // GPIO Function Select 0
     pub const GPFSEL1: usize = 0x04;
     pub const GPFSEL2: usize = 0x08;
     pub const GPFSEL3: usize = 0x0C;
     pub const GPFSEL4: usize = 0x10;
     pub const GPFSEL5: usize = 0x14;
 
-    pub const GPSET0: usize = 0x1C;    // GPIO Pin Output Set 0
+    pub const GPSET0: usize = 0x1C; // GPIO Pin Output Set 0
     pub const GPSET1: usize = 0x20;
 
-    pub const GPCLR0: usize = 0x28;    // GPIO Pin Output Clear 0
+    pub const GPCLR0: usize = 0x28; // GPIO Pin Output Clear 0
     pub const GPCLR1: usize = 0x2C;
 
-    pub const GPLEV0: usize = 0x34;    // GPIO Pin Level 0
+    pub const GPLEV0: usize = 0x34; // GPIO Pin Level 0
     pub const GPLEV1: usize = 0x38;
 
-    pub const GPEDS0: usize = 0x40;    // GPIO Event Detect Status 0
+    pub const GPEDS0: usize = 0x40; // GPIO Event Detect Status 0
     pub const GPEDS1: usize = 0x44;
 
-    pub const GPREN0: usize = 0x4C;    // GPIO Rising Edge Detect Enable 0
+    pub const GPREN0: usize = 0x4C; // GPIO Rising Edge Detect Enable 0
     pub const GPREN1: usize = 0x50;
 
-    pub const GPFEN0: usize = 0x58;    // GPIO Falling Edge Detect Enable 0
+    pub const GPFEN0: usize = 0x58; // GPIO Falling Edge Detect Enable 0
     pub const GPFEN1: usize = 0x5C;
 
-    pub const GPPUD: usize = 0x94;     // GPIO Pull-up/down Enable
+    pub const GPPUD: usize = 0x94; // GPIO Pull-up/down Enable
     pub const GPPUDCLK0: usize = 0x98; // GPIO Pull-up/down Enable Clock 0
     pub const GPPUDCLK1: usize = 0x9C;
 
@@ -203,7 +203,11 @@ impl Gpio {
                 core::hint::spin_loop();
             }
 
-            let clk_offset = if pin < 32 { regs::GPPUDCLK0 } else { regs::GPPUDCLK1 };
+            let clk_offset = if pin < 32 {
+                regs::GPPUDCLK0
+            } else {
+                regs::GPPUDCLK1
+            };
             let bit = pin % 32;
             self.write_reg(clk_offset, 1 << bit);
 

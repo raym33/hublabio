@@ -79,7 +79,9 @@ pub mod mailbox {
 
         unsafe {
             // Wait for mailbox to be not full
-            while core::ptr::read_volatile((base + MAILBOX_STATUS) as *const u32) & MAILBOX_FULL != 0 {
+            while core::ptr::read_volatile((base + MAILBOX_STATUS) as *const u32) & MAILBOX_FULL
+                != 0
+            {
                 core::hint::spin_loop();
             }
 
@@ -93,7 +95,10 @@ pub mod mailbox {
         loop {
             unsafe {
                 // Wait for mailbox to be not empty
-                while core::ptr::read_volatile((base + MAILBOX_STATUS) as *const u32) & MAILBOX_EMPTY != 0 {
+                while core::ptr::read_volatile((base + MAILBOX_STATUS) as *const u32)
+                    & MAILBOX_EMPTY
+                    != 0
+                {
                     core::hint::spin_loop();
                 }
 
@@ -125,7 +130,11 @@ pub mod power {
     }
 
     /// Set power state
-    pub fn set_power_state(domain: PowerDomain, on: bool, wait: bool) -> Result<bool, &'static str> {
+    pub fn set_power_state(
+        domain: PowerDomain,
+        on: bool,
+        wait: bool,
+    ) -> Result<bool, &'static str> {
         // Would use mailbox interface
         Ok(true)
     }
@@ -156,9 +165,9 @@ pub mod clocks {
     pub fn get_rate(clock: ClockId) -> Result<u32, &'static str> {
         // Would use mailbox interface
         match clock {
-            ClockId::Uart => Ok(48_000_000), // 48 MHz
+            ClockId::Uart => Ok(48_000_000),   // 48 MHz
             ClockId::Arm => Ok(1_500_000_000), // 1.5 GHz
-            ClockId::Core => Ok(500_000_000), // 500 MHz
+            ClockId::Core => Ok(500_000_000),  // 500 MHz
             _ => Ok(0),
         }
     }

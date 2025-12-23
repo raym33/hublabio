@@ -1,12 +1,12 @@
 //! Button Widget
 
-use alloc::string::String;
 use alloc::boxed::Box;
+use alloc::string::String;
 
-use crate::gui::{Rect, Color};
+use super::Widget;
 use crate::gui::input::MouseButton;
 use crate::gui::theme::Theme;
-use super::Widget;
+use crate::gui::{Color, Rect};
 
 /// Button widget
 pub struct Button {
@@ -82,7 +82,11 @@ impl Widget for Button {
 
         // Determine colors based on state
         let (bg_color, border_color, text_color) = if !self.enabled {
-            (theme.button_disabled, theme.border_color_inactive, theme.text_disabled)
+            (
+                theme.button_disabled,
+                theme.border_color_inactive,
+                theme.text_disabled,
+            )
         } else if self.pressed {
             (theme.button_pressed, theme.accent_color, theme.button_text)
         } else if self.hovered {

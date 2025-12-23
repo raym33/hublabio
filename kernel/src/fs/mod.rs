@@ -2,17 +2,17 @@
 //!
 //! Persistent filesystem drivers for HubLab IO.
 
-pub mod fat32;
-pub mod ext4;
-pub mod ramfs;
 pub mod block;
+pub mod ext4;
+pub mod fat32;
+pub mod ramfs;
 
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use spin::RwLock;
 
-use crate::vfs::{FileType, FileStat, FilePermissions, OpenFlags, VfsError};
+use crate::vfs::{FilePermissions, FileStat, FileType, OpenFlags, VfsError};
 
 /// Filesystem trait
 pub trait Filesystem: Send + Sync {
@@ -107,11 +107,7 @@ pub struct MountedFs {
 static MOUNTED: RwLock<Vec<MountedFs>> = RwLock::new(Vec::new());
 
 /// Mount a filesystem
-pub fn mount(
-    device: &str,
-    mount_point: &str,
-    fs_type: &str,
-) -> Result<(), VfsError> {
+pub fn mount(device: &str, mount_point: &str, fs_type: &str) -> Result<(), VfsError> {
     crate::kinfo!("Mounting {} on {} ({})", device, mount_point, fs_type);
 
     let fs: Arc<dyn Filesystem> = match fs_type {

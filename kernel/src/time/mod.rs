@@ -2,9 +2,9 @@
 //!
 //! System time, timers, and clock management.
 
-use core::sync::atomic::{AtomicU64, Ordering};
 use alloc::collections::BinaryHeap;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicU64, Ordering};
 use spin::Mutex;
 
 /// System tick counter (incremented by timer interrupt)
@@ -91,10 +91,10 @@ pub type TimerCallback = fn(usize);
 
 /// Timer entry
 struct TimerEntry {
-    expires_at: u64,  // Tick count when timer expires
+    expires_at: u64, // Tick count when timer expires
     callback: TimerCallback,
     data: usize,
-    periodic: Option<u64>,  // Period in ticks (for repeating timers)
+    periodic: Option<u64>, // Period in ticks (for repeating timers)
     id: u64,
 }
 
@@ -258,17 +258,17 @@ pub mod arm_timer {
     use super::*;
 
     /// Timer base addresses
-    pub const BCM2837_TIMER: usize = 0x3F003000;  // Pi 3
-    pub const BCM2711_TIMER: usize = 0xFE003000;  // Pi 4
+    pub const BCM2837_TIMER: usize = 0x3F003000; // Pi 3
+    pub const BCM2711_TIMER: usize = 0xFE003000; // Pi 4
 
     /// System timer registers
-    const CS: usize = 0x00;   // Control/Status
-    const CLO: usize = 0x04;  // Counter lower 32 bits
-    const CHI: usize = 0x08;  // Counter upper 32 bits
-    const C0: usize = 0x0C;   // Compare 0
-    const C1: usize = 0x10;   // Compare 1
-    const C2: usize = 0x14;   // Compare 2
-    const C3: usize = 0x18;   // Compare 3
+    const CS: usize = 0x00; // Control/Status
+    const CLO: usize = 0x04; // Counter lower 32 bits
+    const CHI: usize = 0x08; // Counter upper 32 bits
+    const C0: usize = 0x0C; // Compare 0
+    const C1: usize = 0x10; // Compare 1
+    const C2: usize = 0x14; // Compare 2
+    const C3: usize = 0x18; // Compare 3
 
     /// Read timer counter (64-bit)
     pub fn read_counter(base: usize) -> u64 {

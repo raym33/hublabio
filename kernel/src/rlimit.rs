@@ -283,7 +283,10 @@ impl ResourceUsage {
         let mut max = self.max_rss.load(Ordering::Relaxed);
         while current > max {
             match self.max_rss.compare_exchange_weak(
-                max, current, Ordering::Relaxed, Ordering::Relaxed
+                max,
+                current,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
             ) {
                 Ok(_) => break,
                 Err(new_max) => max = new_max,
@@ -356,7 +359,8 @@ pub fn setrlimit(pid: Pid, resource: Resource, limit: Rlimit) -> Result<(), Rlim
     let limits = limits_map.get_mut(&pid).ok_or(RlimitError::NoProcess)?;
 
     // Check if privileged
-    let privileged = crate::capability::has_capability(pid, crate::capability::Capability::SysResource);
+    let privileged =
+        crate::capability::has_capability(pid, crate::capability::Capability::SysResource);
 
     if privileged {
         limits.set_privileged(resource, limit)
@@ -369,7 +373,11 @@ pub fn setrlimit(pid: Pid, resource: Resource, limit: Rlimit) -> Result<(), Rlim
 pub fn init_process(pid: Pid, parent: Option<Pid>) {
     let limits = if let Some(ppid) = parent {
         // Inherit from parent
-        PROCESS_LIMITS.read().get(&ppid).cloned().unwrap_or_default()
+        PROCESS_LIMITS
+            .read()
+            .get(&ppid)
+            .cloned()
+            .unwrap_or_default()
     } else if pid.0 == 1 {
         ProcessLimits::for_init()
     } else {
@@ -474,7 +482,8 @@ pub fn check_as(pid: Pid, additional: u64) -> Result<(), RlimitError> {
 
 /// Check core dump size limit
 pub fn get_core_limit(pid: Pid) -> u64 {
-    PROCESS_LIMITS.read()
+    PROCESS_LIMITS
+        .read()
         .get(&pid)
         .map(|l| l.get(Resource::Core).rlim_cur)
         .unwrap_or(0)
@@ -482,7 +491,8 @@ pub fn get_core_limit(pid: Pid) -> u64 {
 
 /// Check stack size limit
 pub fn get_stack_limit(pid: Pid) -> u64 {
-    PROCESS_LIMITS.read()
+    PROCESS_LIMITS
+        .read()
         .get(&pid)
         .map(|l| l.get(Resource::Stack).rlim_cur)
         .unwrap_or(8 * 1024 * 1024)
@@ -627,9 +637,9 @@ pub fn sys_getrusage(who: i32, usage_ptr: usize) -> isize {
     };
 
     let target_pid = match who {
-        0 => pid,     // RUSAGE_SELF
-        -1 => pid,    // RUSAGE_CHILDREN - would aggregate children
-        -2 => pid,    // RUSAGE_THREAD
+        0 => pid,  // RUSAGE_SELF
+        -1 => pid, // RUSAGE_CHILDREN - would aggregate children
+        -2 => pid, // RUSAGE_THREAD
         _ => return -22,
     };
 
@@ -641,8 +651,8 @@ pub fn sys_getrusage(who: i32, usage_ptr: usize) -> isize {
     // Fill in rusage structure
     #[repr(C)]
     struct Rusage {
-        ru_utime: [i64; 2],  // user time
-        ru_stime: [i64; 2],  // system time
+        ru_utime: [i64; 2], // user time
+        ru_stime: [i64; 2], // system time
         ru_maxrss: i64,
         ru_ixrss: i64,
         ru_idrss: i64,

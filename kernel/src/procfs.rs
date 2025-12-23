@@ -104,7 +104,10 @@ fn generate_cpuinfo() -> Vec<u8> {
     // ARM64 CPU info
     let _ = writeln!(s, "processor\t: 0");
     let _ = writeln!(s, "BogoMIPS\t: 100.00");
-    let _ = writeln!(s, "Features\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics");
+    let _ = writeln!(
+        s,
+        "Features\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics"
+    );
     let _ = writeln!(s, "CPU implementer\t: 0x41");
     let _ = writeln!(s, "CPU architecture: 8");
     let _ = writeln!(s, "CPU variant\t: 0x0");
@@ -124,7 +127,8 @@ fn generate_version() -> Vec<u8> {
         "HubLab IO version {} (rust@hublab) (rustc {}) #1 SMP\n",
         crate::VERSION,
         "1.75.0"
-    ).into_bytes()
+    )
+    .into_bytes()
 }
 
 /// Generate /proc/uptime
@@ -234,7 +238,8 @@ fn generate_process_stat(proc: &crate::process::Process) -> Vec<u8> {
         proc.pid.0, // session
         memory.heap_end - memory.heap_start,
         0 // rss
-    ).into_bytes()
+    )
+    .into_bytes()
 }
 
 /// Generate /proc/[pid]/status
@@ -255,9 +260,21 @@ fn generate_process_status(proc: &crate::process::Process) -> Vec<u8> {
     let _ = writeln!(s, "State:\t{}", state_str);
     let _ = writeln!(s, "Pid:\t{}", proc.pid.0);
     let _ = writeln!(s, "PPid:\t{}", proc.ppid.0);
-    let _ = writeln!(s, "Uid:\t{}\t{}\t{}\t{}", proc.uid, proc.uid, proc.uid, proc.uid);
-    let _ = writeln!(s, "Gid:\t{}\t{}\t{}\t{}", proc.gid, proc.gid, proc.gid, proc.gid);
-    let _ = writeln!(s, "VmSize:\t{} kB", (memory.heap_end - memory.heap_start) / 1024);
+    let _ = writeln!(
+        s,
+        "Uid:\t{}\t{}\t{}\t{}",
+        proc.uid, proc.uid, proc.uid, proc.uid
+    );
+    let _ = writeln!(
+        s,
+        "Gid:\t{}\t{}\t{}\t{}",
+        proc.gid, proc.gid, proc.gid, proc.gid
+    );
+    let _ = writeln!(
+        s,
+        "VmSize:\t{} kB",
+        (memory.heap_end - memory.heap_start) / 1024
+    );
     let _ = writeln!(s, "VmRSS:\t0 kB");
     let _ = writeln!(s, "Threads:\t1");
 
@@ -302,8 +319,7 @@ fn generate_process_maps(proc: &crate::process::Process) -> Vec<u8> {
     let _ = writeln!(
         s,
         "{:016x}-{:016x} rw-p 00000000 00:00 0          [heap]",
-        memory.heap_start,
-        memory.heap_end
+        memory.heap_start, memory.heap_end
     );
 
     // Stack

@@ -4,9 +4,9 @@
 //! Accessible via serial console or kernel debugger.
 
 use alloc::collections::VecDeque;
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use alloc::format;
 use core::sync::atomic::{AtomicBool, Ordering};
 use spin::Mutex;
 
@@ -250,7 +250,9 @@ fn cmd_info(_args: &[&str]) -> Result<String, ShellError> {
         crate::NAME,
         crate::VERSION,
         core::env!("CARGO_CFG_TARGET_ARCH"),
-        hours, mins, secs,
+        hours,
+        mins,
+        secs,
         crate::process::count(),
     );
 
@@ -311,10 +313,7 @@ fn cmd_uptime(_args: &[&str]) -> Result<String, ShellError> {
     let mins = (uptime_s % 3600) / 60;
     let secs = uptime_s % 60;
 
-    let output = format!(
-        "Uptime: {} days, {}:{}:{}\n",
-        days, hours, mins, secs
-    );
+    let output = format!("Uptime: {} days, {}:{}:{}\n", days, hours, mins, secs);
 
     Ok(output)
 }
@@ -340,7 +339,9 @@ fn cmd_dmesg(args: &[&str]) -> Result<String, ShellError> {
          [    0.000002] Memory manager initialized\n\
          [    0.000003] Scheduler initialized\n\
          (showing last {} lines)\n",
-        crate::NAME, crate::VERSION, lines
+        crate::NAME,
+        crate::VERSION,
+        lines
     );
 
     Ok(output)
@@ -364,7 +365,7 @@ fn cmd_kill(args: &[&str]) -> Result<String, ShellError> {
     // Would send signal
     crate::signal::send_signal(
         crate::process::Pid(pid),
-        crate::signal::Signal::from_num(signal).unwrap_or(crate::signal::Signal::SIGTERM)
+        crate::signal::Signal::from_num(signal).unwrap_or(crate::signal::Signal::SIGTERM),
     );
 
     Ok(format!("Sent signal {} to PID {}\n", signal, pid))
@@ -424,8 +425,12 @@ fn cmd_cat(args: &[&str]) -> Result<String, ShellError> {
 
     // Would read from VFS
     let content = match path {
-        "/proc/version" => format!("{} version {} ({})\n",
-            crate::NAME, crate::VERSION, core::env!("CARGO_CFG_TARGET_ARCH")),
+        "/proc/version" => format!(
+            "{} version {} ({})\n",
+            crate::NAME,
+            crate::VERSION,
+            core::env!("CARGO_CFG_TARGET_ARCH")
+        ),
         "/proc/uptime" => {
             let uptime_s = crate::time::monotonic_ns() / 1_000_000_000;
             format!("{}.00 {}.00\n", uptime_s, uptime_s / 2)
@@ -449,7 +454,7 @@ fn cmd_clear(_args: &[&str]) -> Result<String, ShellError> {
 fn cmd_lsmod(_args: &[&str]) -> Result<String, ShellError> {
     let output = String::from(
         "Module                  Size  Used by\n\
-         kernel (builtin)\n"
+         kernel (builtin)\n",
     );
     Ok(output)
 }
@@ -473,7 +478,7 @@ fn cmd_ifconfig(_args: &[&str]) -> Result<String, ShellError> {
         "lo: flags=73<UP,LOOPBACK,RUNNING>\n\
          \tinet 127.0.0.1  netmask 255.0.0.0\n\
          \tinet6 ::1  prefixlen 128\n\
-         \tloop  txqueuelen 1000\n\n"
+         \tloop  txqueuelen 1000\n\n",
     );
     Ok(output)
 }
@@ -486,7 +491,7 @@ fn cmd_sysctl(args: &[&str]) -> Result<String, ShellError> {
              kernel.ostype = HubLabIO\n\
              kernel.osrelease = 0.1.0\n\
              kernel.version = #1\n\
-             vm.swappiness = 60\n"
+             vm.swappiness = 60\n",
         );
         return Ok(output);
     }
@@ -530,10 +535,8 @@ fn cmd_dump(args: &[&str]) -> Result<String, ShellError> {
         return Err(ShellError::InvalidArgs);
     }
 
-    let addr: usize = usize::from_str_radix(
-        args[1].trim_start_matches("0x"),
-        16
-    ).map_err(|_| ShellError::InvalidArgs)?;
+    let addr: usize = usize::from_str_radix(args[1].trim_start_matches("0x"), 16)
+        .map_err(|_| ShellError::InvalidArgs)?;
 
     let len: usize = if args.len() > 2 {
         args[2].parse().unwrap_or(64)
@@ -587,7 +590,9 @@ fn cmd_perf(_args: &[&str]) -> Result<String, ShellError> {
          Context switches: {}\n\
          Interrupts:   {}\n\
          Page faults:  {}\n",
-        0, 0, 0,
+        0,
+        0,
+        0,
         crate::pagefault::get_stats().0
     );
 

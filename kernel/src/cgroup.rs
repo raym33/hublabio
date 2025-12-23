@@ -7,7 +7,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicU64, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use spin::{Mutex, RwLock};
 
 use crate::process::Pid;
@@ -498,7 +498,10 @@ impl Cgroup {
             frozen: AtomicU32::new(0),
         });
 
-        parent.children.write().insert(String::from(name), child.clone());
+        parent
+            .children
+            .write()
+            .insert(String::from(name), child.clone());
         Ok(child)
     }
 
@@ -777,7 +780,9 @@ pub fn can_fork(pid: Pid) -> bool {
 
 /// Generate cgroup.controllers content
 pub fn generate_controllers(cgroup: &Cgroup) -> String {
-    cgroup.controllers.read()
+    cgroup
+        .controllers
+        .read()
         .iter()
         .map(|c| c.name())
         .collect::<Vec<_>>()
@@ -786,7 +791,9 @@ pub fn generate_controllers(cgroup: &Cgroup) -> String {
 
 /// Generate cgroup.procs content
 pub fn generate_procs(cgroup: &Cgroup) -> String {
-    cgroup.procs.read()
+    cgroup
+        .procs
+        .read()
         .iter()
         .map(|p| format!("{}", p.0))
         .collect::<Vec<_>>()

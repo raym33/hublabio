@@ -76,8 +76,19 @@ impl Table {
     pub fn valid_hooks(&self) -> &[Hook] {
         match self {
             Table::Filter => &[Hook::Input, Hook::Forward, Hook::Output],
-            Table::Nat => &[Hook::PreRouting, Hook::Input, Hook::Output, Hook::PostRouting],
-            Table::Mangle => &[Hook::PreRouting, Hook::Input, Hook::Forward, Hook::Output, Hook::PostRouting],
+            Table::Nat => &[
+                Hook::PreRouting,
+                Hook::Input,
+                Hook::Output,
+                Hook::PostRouting,
+            ],
+            Table::Mangle => &[
+                Hook::PreRouting,
+                Hook::Input,
+                Hook::Forward,
+                Hook::Output,
+                Hook::PostRouting,
+            ],
             Table::Raw => &[Hook::PreRouting, Hook::Output],
             Table::Security => &[Hook::Input, Hook::Forward, Hook::Output],
         }
@@ -510,7 +521,12 @@ fn log_packet(pkt: &Packet, opts: &LogOptions) {
         opts.prefix,
         pkt.in_iface.as_deref().unwrap_or(""),
         pkt.out_iface.as_deref().unwrap_or(""),
-        src, dst, pkt.len, pkt.protocol, pkt.src_port, pkt.dst_port
+        src,
+        dst,
+        pkt.len,
+        pkt.protocol,
+        pkt.src_port,
+        pkt.dst_port
     );
 }
 
@@ -591,7 +607,9 @@ pub fn create_chain(table: Table, name: &str) -> Result<(), &'static str> {
         return Err("Chain already exists");
     }
 
-    table.chains.insert(String::from(name), Chain::new(name, None));
+    table
+        .chains
+        .insert(String::from(name), Chain::new(name, None));
     Ok(())
 }
 
@@ -640,7 +658,13 @@ pub fn process_hook(hook: Hook, pkt: &mut Packet) -> Verdict {
     let tables = TABLES.read();
 
     // Process through each table in order
-    for table_type in &[Table::Raw, Table::Mangle, Table::Nat, Table::Filter, Table::Security] {
+    for table_type in &[
+        Table::Raw,
+        Table::Mangle,
+        Table::Nat,
+        Table::Filter,
+        Table::Security,
+    ] {
         if !table_type.valid_hooks().contains(&hook) {
             continue;
         }
@@ -664,7 +688,9 @@ pub fn list_rules(table: Table, chain: &str) -> Option<Vec<(u32, String)>> {
     let table = tables.get(&table)?;
     let chain = table.chains.get(chain)?;
 
-    let rules: Vec<(u32, String)> = chain.rules.iter()
+    let rules: Vec<(u32, String)> = chain
+        .rules
+        .iter()
         .map(|r| {
             let target = match &r.target {
                 Target::Accept => "ACCEPT",
@@ -690,7 +716,8 @@ pub fn generate_iptables_save() -> String {
 
         // Chain definitions
         for (name, chain) in &table.chains {
-            let policy = chain.policy
+            let policy = chain
+                .policy
                 .map(|v| match v {
                     Verdict::Accept => "ACCEPT",
                     Verdict::Drop => "DROP",
@@ -700,7 +727,8 @@ pub fn generate_iptables_save() -> String {
 
             output.push_str(&alloc::format!(
                 ":{} {} [{:}:{:}]\n",
-                name, policy,
+                name,
+                policy,
                 chain.packets.load(Ordering::Relaxed),
                 chain.bytes.load(Ordering::Relaxed)
             ));
@@ -721,7 +749,7 @@ mod tests {
         let rule = Rule::new(
             vec![
                 Match::SrcIp(0xC0A80100, 0xFFFFFF00), // 192.168.1.0/24
-                Match::Protocol(6), // TCP
+                Match::Protocol(6),                   // TCP
                 Match::DstPort(80, 80),
             ],
             Target::Accept,
@@ -742,10 +770,7 @@ mod tests {
     fn test_chain_processing() {
         let mut chain = Chain::new("INPUT", Some(Verdict::Drop));
 
-        chain.add_rule(Rule::new(
-            vec![Match::Protocol(6)],
-            Target::Accept,
-        ));
+        chain.add_rule(Rule::new(vec![Match::Protocol(6)], Target::Accept));
 
         let mut pkt = Packet::new();
         pkt.protocol = 6;

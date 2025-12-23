@@ -2,13 +2,15 @@
 //!
 //! Support for USB hubs and port management.
 
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use spin::Mutex;
 
-use super::{UsbDevice, UsbError, UsbClass, SetupPacket, RequestType, RequestTypeType, Direction, Recipient};
+use super::device::{bind_driver, configure_device, enumerate_device};
 use super::hcd::{get_controller, PortStatus};
-use super::device::{enumerate_device, configure_device, bind_driver};
+use super::{
+    Direction, Recipient, RequestType, RequestTypeType, SetupPacket, UsbClass, UsbDevice, UsbError,
+};
 
 /// Hub descriptor type
 const HUB_DESCRIPTOR_TYPE: u8 = 0x29;
@@ -53,7 +55,7 @@ mod port_feature {
 pub struct HubDescriptor {
     pub num_ports: u8,
     pub characteristics: u16,
-    pub power_on_time: u8,  // In 2ms units
+    pub power_on_time: u8, // In 2ms units
     pub controller_current: u8,
     pub removable_ports: u64,
 }
@@ -124,7 +126,8 @@ impl UsbHub {
         // Get hub descriptor
         let descriptor = Self::get_hub_descriptor(&device)?;
 
-        let port_status = alloc::vec![HubPortStatus { status: 0, change: 0 }; descriptor.num_ports as usize];
+        let port_status =
+            alloc::vec![HubPortStatus { status: 0, change: 0 }; descriptor.num_ports as usize];
 
         Ok(Self {
             device,
@@ -150,7 +153,9 @@ impl UsbHub {
         );
 
         let mut buf = [0u8; 9];
-        controller.lock().control_transfer(device.address(), setup, &mut buf)?;
+        controller
+            .lock()
+            .control_transfer(device.address(), setup, &mut buf)?;
 
         if buf[0] < 7 || buf[1] != HUB_DESCRIPTOR_TYPE {
             return Err(UsbError::InvalidDescriptor);
@@ -161,7 +166,7 @@ impl UsbHub {
             characteristics: u16::from_le_bytes([buf[3], buf[4]]),
             power_on_time: buf[5],
             controller_current: buf[6],
-            removable_ports: 0,  // Would parse from additional bytes
+            removable_ports: 0, // Would parse from additional bytes
         })
     }
 
@@ -186,7 +191,9 @@ impl UsbHub {
         );
 
         let mut buf = [0u8; 4];
-        controller.lock().control_transfer(self.device.address(), setup, &mut buf)?;
+        controller
+            .lock()
+            .control_transfer(self.device.address(), setup, &mut buf)?;
 
         let status = HubPortStatus {
             status: u16::from_le_bytes([buf[0], buf[1]]),
@@ -218,7 +225,9 @@ impl UsbHub {
             0,
         );
 
-        controller.lock().control_transfer(self.device.address(), setup, &mut [])?;
+        controller
+            .lock()
+            .control_transfer(self.device.address(), setup, &mut [])?;
 
         Ok(())
     }
@@ -243,7 +252,9 @@ impl UsbHub {
             0,
         );
 
-        controller.lock().control_transfer(self.device.address(), setup, &mut [])?;
+        controller
+            .lock()
+            .control_transfer(self.device.address(), setup, &mut [])?;
 
         Ok(())
     }

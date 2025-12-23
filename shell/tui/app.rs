@@ -5,9 +5,9 @@
 //! in the terminal with app launcher, status bar, and AI integration.
 //! =============================================================================
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::boxed::Box;
 
 /// ANSI escape codes for terminal control
 pub mod ansi {
@@ -70,9 +70,9 @@ impl Theme {
         name: "Material Dark",
         background: (18, 18, 18),
         foreground: (255, 255, 255),
-        primary: (187, 134, 252),    // Purple
-        secondary: (3, 218, 198),    // Teal
-        accent: (207, 102, 121),     // Pink
+        primary: (187, 134, 252), // Purple
+        secondary: (3, 218, 198), // Teal
+        accent: (207, 102, 121),  // Pink
         surface: (30, 30, 30),
         error: (207, 102, 121),
     };
@@ -81,9 +81,9 @@ impl Theme {
         name: "AMOLED",
         background: (0, 0, 0),
         foreground: (255, 255, 255),
-        primary: (0, 255, 136),      // Green
-        secondary: (0, 212, 255),    // Blue
-        accent: (255, 61, 127),      // Pink
+        primary: (0, 255, 136),   // Green
+        secondary: (0, 212, 255), // Blue
+        accent: (255, 61, 127),   // Pink
         surface: (20, 20, 20),
         error: (255, 61, 127),
     };
@@ -92,7 +92,7 @@ impl Theme {
         name: "Light",
         background: (245, 245, 245),
         foreground: (0, 0, 0),
-        primary: (98, 0, 238),       // Purple
+        primary: (98, 0, 238), // Purple
         secondary: (3, 218, 198),
         accent: (255, 61, 127),
         surface: (255, 255, 255),
@@ -142,39 +142,149 @@ pub enum AppCategory {
 /// Built-in apps
 pub const APPS: &[AppDef] = &[
     // AI Apps
-    AppDef { id: "chat", name: "R Chat", icon: "🤖", category: AppCategory::AI },
-    AppDef { id: "voice", name: "Voice", icon: "🎤", category: AppCategory::AI },
-    AppDef { id: "translate", name: "Translate", icon: "🌍", category: AppCategory::AI },
-    AppDef { id: "agents", name: "Agents", icon: "🧠", category: AppCategory::AI },
-
+    AppDef {
+        id: "chat",
+        name: "R Chat",
+        icon: "🤖",
+        category: AppCategory::AI,
+    },
+    AppDef {
+        id: "voice",
+        name: "Voice",
+        icon: "🎤",
+        category: AppCategory::AI,
+    },
+    AppDef {
+        id: "translate",
+        name: "Translate",
+        icon: "🌍",
+        category: AppCategory::AI,
+    },
+    AppDef {
+        id: "agents",
+        name: "Agents",
+        icon: "🧠",
+        category: AppCategory::AI,
+    },
     // System Apps
-    AppDef { id: "files", name: "Files", icon: "📁", category: AppCategory::System },
-    AppDef { id: "terminal", name: "Terminal", icon: "💻", category: AppCategory::System },
-    AppDef { id: "settings", name: "Settings", icon: "⚙️", category: AppCategory::System },
-    AppDef { id: "system", name: "System", icon: "📊", category: AppCategory::System },
-
+    AppDef {
+        id: "files",
+        name: "Files",
+        icon: "📁",
+        category: AppCategory::System,
+    },
+    AppDef {
+        id: "terminal",
+        name: "Terminal",
+        icon: "💻",
+        category: AppCategory::System,
+    },
+    AppDef {
+        id: "settings",
+        name: "Settings",
+        icon: "⚙️",
+        category: AppCategory::System,
+    },
+    AppDef {
+        id: "system",
+        name: "System",
+        icon: "📊",
+        category: AppCategory::System,
+    },
     // Productivity
-    AppDef { id: "notes", name: "Notes", icon: "📝", category: AppCategory::Productivity },
-    AppDef { id: "calendar", name: "Calendar", icon: "📅", category: AppCategory::Productivity },
-    AppDef { id: "clock", name: "Clock", icon: "⏰", category: AppCategory::Productivity },
-    AppDef { id: "calc", name: "Calculator", icon: "🔢", category: AppCategory::Productivity },
-
+    AppDef {
+        id: "notes",
+        name: "Notes",
+        icon: "📝",
+        category: AppCategory::Productivity,
+    },
+    AppDef {
+        id: "calendar",
+        name: "Calendar",
+        icon: "📅",
+        category: AppCategory::Productivity,
+    },
+    AppDef {
+        id: "clock",
+        name: "Clock",
+        icon: "⏰",
+        category: AppCategory::Productivity,
+    },
+    AppDef {
+        id: "calc",
+        name: "Calculator",
+        icon: "🔢",
+        category: AppCategory::Productivity,
+    },
     // Media
-    AppDef { id: "camera", name: "Camera", icon: "📷", category: AppCategory::Media },
-    AppDef { id: "gallery", name: "Gallery", icon: "🖼️", category: AppCategory::Media },
-    AppDef { id: "music", name: "Music", icon: "🎵", category: AppCategory::Media },
-    AppDef { id: "video", name: "Video", icon: "🎬", category: AppCategory::Media },
-
+    AppDef {
+        id: "camera",
+        name: "Camera",
+        icon: "📷",
+        category: AppCategory::Media,
+    },
+    AppDef {
+        id: "gallery",
+        name: "Gallery",
+        icon: "🖼️",
+        category: AppCategory::Media,
+    },
+    AppDef {
+        id: "music",
+        name: "Music",
+        icon: "🎵",
+        category: AppCategory::Media,
+    },
+    AppDef {
+        id: "video",
+        name: "Video",
+        icon: "🎬",
+        category: AppCategory::Media,
+    },
     // Network
-    AppDef { id: "wifi", name: "WiFi", icon: "📶", category: AppCategory::Network },
-    AppDef { id: "bluetooth", name: "Bluetooth", icon: "🔵", category: AppCategory::Network },
-    AppDef { id: "browser", name: "Browser", icon: "🌐", category: AppCategory::Network },
-    AppDef { id: "network", name: "Network", icon: "🔌", category: AppCategory::Network },
-
+    AppDef {
+        id: "wifi",
+        name: "WiFi",
+        icon: "📶",
+        category: AppCategory::Network,
+    },
+    AppDef {
+        id: "bluetooth",
+        name: "Bluetooth",
+        icon: "🔵",
+        category: AppCategory::Network,
+    },
+    AppDef {
+        id: "browser",
+        name: "Browser",
+        icon: "🌐",
+        category: AppCategory::Network,
+    },
+    AppDef {
+        id: "network",
+        name: "Network",
+        icon: "🔌",
+        category: AppCategory::Network,
+    },
     // Hardware
-    AppDef { id: "gpio", name: "GPIO", icon: "💡", category: AppCategory::Hardware },
-    AppDef { id: "power", name: "Power", icon: "🔋", category: AppCategory::Hardware },
-    AppDef { id: "sensors", name: "Sensors", icon: "🌡️", category: AppCategory::Hardware },
+    AppDef {
+        id: "gpio",
+        name: "GPIO",
+        icon: "💡",
+        category: AppCategory::Hardware,
+    },
+    AppDef {
+        id: "power",
+        name: "Power",
+        icon: "🔋",
+        category: AppCategory::Hardware,
+    },
+    AppDef {
+        id: "sensors",
+        name: "Sensors",
+        icon: "🌡️",
+        category: AppCategory::Hardware,
+    },
 ];
 
 /// System status
@@ -183,7 +293,7 @@ pub struct SystemStatus {
     pub battery_percent: u8,
     pub battery_charging: bool,
     pub wifi_connected: bool,
-    pub wifi_signal: u8,  // 0-4
+    pub wifi_signal: u8, // 0-4
     pub bluetooth_on: bool,
     pub time_hour: u8,
     pub time_minute: u8,
@@ -518,8 +628,24 @@ impl TuiApp {
             ("🌙", "Theme", &*alloc::format!("{}", self.theme.name)),
             ("🔊", "Volume", "80%"),
             ("🔆", "Brightness", "70%"),
-            ("📶", "WiFi", if self.status.wifi_connected { "Connected" } else { "Off" }),
-            ("🔵", "Bluetooth", if self.status.bluetooth_on { "On" } else { "Off" }),
+            (
+                "📶",
+                "WiFi",
+                if self.status.wifi_connected {
+                    "Connected"
+                } else {
+                    "Off"
+                },
+            ),
+            (
+                "🔵",
+                "Bluetooth",
+                if self.status.bluetooth_on {
+                    "On"
+                } else {
+                    "Off"
+                },
+            ),
             ("🤖", "AI Model", "qwen2.5:0.5b"),
             ("🎤", "Voice", "Enabled"),
             ("💾", "Storage", "12.4 GB free"),
@@ -569,10 +695,7 @@ impl TuiApp {
         placeholder.push_str(&ansi::move_to(3, 1));
         placeholder.push_str(&self.theme.primary());
         placeholder.push_str("╭───────────────────────────────────────────────────────────╮\n");
-        placeholder.push_str(&alloc::format!(
-            "│                    {} {}",
-            icon, name
-        ));
+        placeholder.push_str(&alloc::format!("│                    {} {}", icon, name));
         placeholder.push_str(&" ".repeat(55 - name.len()));
         placeholder.push_str("│\n");
         placeholder.push_str("╰───────────────────────────────────────────────────────────╯\n\n");

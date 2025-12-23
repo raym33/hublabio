@@ -2,14 +2,14 @@
 //!
 //! BSD-style socket interface for applications.
 
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU32, Ordering};
 use spin::Mutex;
-use alloc::collections::BTreeMap;
 
-use super::{Ipv4Address, NetError};
 use super::tcp::{self, SocketAddr};
 use super::udp;
+use super::{Ipv4Address, NetError};
 
 /// Socket descriptor counter
 static SOCKET_COUNTER: AtomicU32 = AtomicU32::new(3); // 0,1,2 reserved
@@ -17,17 +17,17 @@ static SOCKET_COUNTER: AtomicU32 = AtomicU32::new(3); // 0,1,2 reserved
 /// Socket types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SocketType {
-    Stream,     // TCP
-    Datagram,   // UDP
-    Raw,        // Raw IP
+    Stream,   // TCP
+    Datagram, // UDP
+    Raw,      // Raw IP
 }
 
 /// Socket address family
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AddressFamily {
-    Inet,       // IPv4
-    Inet6,      // IPv6
-    Unix,       // Unix domain
+    Inet,  // IPv4
+    Inet6, // IPv6
+    Unix,  // Unix domain
 }
 
 /// Socket state
@@ -222,10 +222,9 @@ pub fn sendto(fd: SocketFd, data: &[u8], addr: SocketAddr) -> Result<usize, NetE
         return Err(NetError::InvalidPacket);
     }
 
-    let local = socket.local_addr.unwrap_or(SocketAddr::new(
-        Ipv4Address::UNSPECIFIED,
-        0,
-    ));
+    let local = socket
+        .local_addr
+        .unwrap_or(SocketAddr::new(Ipv4Address::UNSPECIFIED, 0));
 
     udp::send_to(local, addr, data)
 }
@@ -363,9 +362,9 @@ pub fn create_socket(domain: i32, sock_type: i32, protocol: i32) -> Result<Socke
 
     // Translate domain
     let family = match domain {
-        2 => AddressFamily::Inet,      // AF_INET
-        10 => AddressFamily::Inet6,    // AF_INET6
-        1 => AddressFamily::Unix,      // AF_UNIX
+        2 => AddressFamily::Inet,   // AF_INET
+        10 => AddressFamily::Inet6, // AF_INET6
+        1 => AddressFamily::Unix,   // AF_UNIX
         _ => return Err(NetError::InvalidPacket),
     };
 
@@ -393,7 +392,11 @@ pub fn bind_addr(fd: i32, addr_ptr: usize, addrlen: u32) -> Result<(), NetError>
         let port = u16::from_be_bytes([*ptr.add(2), *ptr.add(3)]);
         let ip_bytes = [*ptr.add(4), *ptr.add(5), *ptr.add(6), *ptr.add(7)];
 
-        (family, port, Ipv4Address::new(ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]))
+        (
+            family,
+            port,
+            Ipv4Address::new(ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]),
+        )
     };
 
     let addr = SocketAddr::new(sockaddr.2, sockaddr.1);

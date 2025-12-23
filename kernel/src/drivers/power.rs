@@ -2,8 +2,8 @@
 //!
 //! CPU power states, frequency scaling, and system power control.
 
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use spin::Mutex;
-use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
 /// Current CPU frequency (MHz)
 static CPU_FREQ: AtomicU32 = AtomicU32::new(1500);
@@ -46,9 +46,9 @@ pub enum CpuGovernor {
 /// CPU frequency info
 #[derive(Clone, Debug)]
 pub struct CpuFreqInfo {
-    pub current_freq: u32,    // MHz
-    pub min_freq: u32,        // MHz
-    pub max_freq: u32,        // MHz
+    pub current_freq: u32, // MHz
+    pub min_freq: u32,     // MHz
+    pub max_freq: u32,     // MHz
     pub governor: CpuGovernor,
     pub available_freqs: &'static [u32],
 }
@@ -59,8 +59,8 @@ pub struct PowerConfig {
     pub governor: CpuGovernor,
     pub min_freq: u32,
     pub max_freq: u32,
-    pub suspend_timeout: u32,     // seconds
-    pub hibernate_timeout: u32,   // seconds
+    pub suspend_timeout: u32,   // seconds
+    pub hibernate_timeout: u32, // seconds
     pub wake_on_lan: bool,
     pub wake_on_usb: bool,
 }
@@ -108,7 +108,11 @@ pub mod rpi {
 
     /// Set domain power state
     pub fn set_power_state(domain: PowerDomain, on: bool) -> Result<(), &'static str> {
-        crate::kdebug!("Power: Setting {:?} to {}", domain, if on { "ON" } else { "OFF" });
+        crate::kdebug!(
+            "Power: Setting {:?} to {}",
+            domain,
+            if on { "ON" } else { "OFF" }
+        );
         // Would set via mailbox
         Ok(())
     }

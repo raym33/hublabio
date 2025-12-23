@@ -10,8 +10,8 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use spin::{Mutex, RwLock};
 
+use crate::auth::{Gid, Uid};
 use crate::process::Pid;
-use crate::auth::{Uid, Gid};
 
 /// Maximum socket path length
 pub const UNIX_PATH_MAX: usize = 108;
@@ -92,13 +92,19 @@ impl UnixAddr {
 
         // Check for abstract namespace
         if bytes[2] == 0 && bytes.len() > 3 {
-            let end = bytes[3..].iter().position(|&b| b == 0).unwrap_or(bytes.len() - 3);
+            let end = bytes[3..]
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(bytes.len() - 3);
             let name = String::from_utf8_lossy(&bytes[3..3 + end]).into_owned();
             return Some(Self::abstract_name(&name));
         }
 
         // Regular pathname
-        let end = bytes[2..].iter().position(|&b| b == 0).unwrap_or(bytes.len() - 2);
+        let end = bytes[2..]
+            .iter()
+            .position(|&b| b == 0)
+            .unwrap_or(bytes.len() - 2);
         let path = String::from_utf8_lossy(&bytes[2..2 + end]).into_owned();
         Some(Self::pathname(&path))
     }
@@ -232,7 +238,11 @@ impl UnixSocket {
                 gid: proc.gid,
             }
         } else {
-            UCredentials { pid: 0, uid: 0, gid: 0 }
+            UCredentials {
+                pid: 0,
+                uid: 0,
+                gid: 0,
+            }
         };
 
         Arc::new(Self {
@@ -276,7 +286,9 @@ impl UnixSocket {
             }
 
             // Register in namespace
-            BOUND_SOCKETS.write().insert(addr.path.clone(), self.clone());
+            BOUND_SOCKETS
+                .write()
+                .insert(addr.path.clone(), self.clone());
         }
 
         *self.local_addr.write() = Some(addr.clone());
@@ -362,7 +374,8 @@ impl UnixSocket {
         }
 
         // Find target socket
-        let target = BOUND_SOCKETS.read()
+        let target = BOUND_SOCKETS
+            .read()
             .get(&addr.path)
             .cloned()
             .ok_or(SocketError::ConnRefused)?;
@@ -499,7 +512,8 @@ impl UnixSocket {
             .ok_or(SocketError::DestAddrRequired)?;
 
         // Find target socket
-        let target = BOUND_SOCKETS.read()
+        let target = BOUND_SOCKETS
+            .read()
             .get(&target_addr.path)
             .cloned()
             .ok_or(SocketError::ConnRefused)?;
@@ -523,7 +537,11 @@ impl UnixSocket {
     }
 
     /// Receive datagram
-    pub fn recvfrom(&self, buf: &mut [u8], flags: i32) -> Result<(usize, Option<UnixAddr>), SocketError> {
+    pub fn recvfrom(
+        &self,
+        buf: &mut [u8],
+        flags: i32,
+    ) -> Result<(usize, Option<UnixAddr>), SocketError> {
         if self.socket_type != SocketType::Dgram {
             return Err(SocketError::OpNotSupported);
         }
@@ -710,18 +728,18 @@ pub enum SocketError {
 impl SocketError {
     pub fn to_errno(&self) -> i32 {
         match self {
-            SocketError::Invalid => -22,        // EINVAL
-            SocketError::AddrInUse => -98,      // EADDRINUSE
-            SocketError::OpNotSupported => -95, // EOPNOTSUPP
-            SocketError::InvalidState => -22,   // EINVAL
-            SocketError::WouldBlock => -11,     // EAGAIN
-            SocketError::ConnRefused => -111,   // ECONNREFUSED
-            SocketError::NotConnected => -107,  // ENOTCONN
-            SocketError::IsConnected => -106,   // EISCONN
+            SocketError::Invalid => -22,          // EINVAL
+            SocketError::AddrInUse => -98,        // EADDRINUSE
+            SocketError::OpNotSupported => -95,   // EOPNOTSUPP
+            SocketError::InvalidState => -22,     // EINVAL
+            SocketError::WouldBlock => -11,       // EAGAIN
+            SocketError::ConnRefused => -111,     // ECONNREFUSED
+            SocketError::NotConnected => -107,    // ENOTCONN
+            SocketError::IsConnected => -106,     // EISCONN
             SocketError::DestAddrRequired => -89, // EDESTADDRREQ
-            SocketError::BrokenPipe => -32,     // EPIPE
-            SocketError::Permission => -1,      // EPERM
-            SocketError::AddrNotAvail => -99,   // EADDRNOTAVAIL
+            SocketError::BrokenPipe => -32,       // EPIPE
+            SocketError::Permission => -1,        // EPERM
+            SocketError::AddrNotAvail => -99,     // EADDRNOTAVAIL
         }
     }
 }
@@ -734,7 +752,9 @@ impl SocketError {
 static BOUND_SOCKETS: RwLock<BTreeMap<String, Arc<UnixSocket>>> = RwLock::new(BTreeMap::new());
 
 /// Create socket pair
-pub fn socketpair(socket_type: SocketType) -> Result<(Arc<UnixSocket>, Arc<UnixSocket>), SocketError> {
+pub fn socketpair(
+    socket_type: SocketType,
+) -> Result<(Arc<UnixSocket>, Arc<UnixSocket>), SocketError> {
     let pid = crate::process::current()
         .map(|p| p.pid)
         .ok_or(SocketError::Permission)?;

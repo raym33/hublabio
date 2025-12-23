@@ -3,41 +3,53 @@
 //! Provides spinlocks, ticketlocks, RW locks, and other synchronization
 //! primitives optimized for ARM64 multi-core systems.
 
-use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering, fence};
+use core::arch::asm;
 use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
-use core::arch::asm;
+use core::sync::atomic::{fence, AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 /// Memory barrier types
 #[inline]
 pub fn dmb_sy() {
-    unsafe { asm!("dmb sy"); }
+    unsafe {
+        asm!("dmb sy");
+    }
 }
 
 #[inline]
 pub fn dmb_ld() {
-    unsafe { asm!("dmb ld"); }
+    unsafe {
+        asm!("dmb ld");
+    }
 }
 
 #[inline]
 pub fn dmb_st() {
-    unsafe { asm!("dmb st"); }
+    unsafe {
+        asm!("dmb st");
+    }
 }
 
 #[inline]
 pub fn dsb_sy() {
-    unsafe { asm!("dsb sy"); }
+    unsafe {
+        asm!("dsb sy");
+    }
 }
 
 #[inline]
 pub fn isb() {
-    unsafe { asm!("isb"); }
+    unsafe {
+        asm!("isb");
+    }
 }
 
 /// Spin hint for busy-wait loops
 #[inline]
 pub fn spin_hint() {
-    unsafe { asm!("yield"); }
+    unsafe {
+        asm!("yield");
+    }
 }
 
 /// Simple spinlock using atomic exchange
@@ -65,14 +77,14 @@ impl<T> SpinLock<T> {
 
     /// Try to acquire the lock without blocking
     pub fn try_lock(&self) -> Option<SpinLockGuard<T>> {
-        if self.locked.compare_exchange(
-            false,
-            true,
-            Ordering::Acquire,
-            Ordering::Relaxed
-        ).is_ok() {
+        if self
+            .locked
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             #[cfg(debug_assertions)]
-            self.owner_cpu.store(crate::smp::cpu_id(), Ordering::Relaxed);
+            self.owner_cpu
+                .store(crate::smp::cpu_id(), Ordering::Relaxed);
 
             Some(SpinLockGuard { lock: self })
         } else {
@@ -220,12 +232,11 @@ impl<T> TicketLock<T> {
 
         if ticket == serving {
             // No one waiting, try to take next ticket
-            if self.next_ticket.compare_exchange(
-                ticket,
-                ticket + 1,
-                Ordering::Acquire,
-                Ordering::Relaxed
-            ).is_ok() {
+            if self
+                .next_ticket
+                .compare_exchange(ticket, ticket + 1, Ordering::Acquire, Ordering::Relaxed)
+                .is_ok()
+            {
                 return Some(TicketLockGuard { lock: self });
             }
         }
@@ -339,12 +350,11 @@ impl<T> RwLock<T> {
             }
 
             // Try to set writer bit
-            if self.state.compare_exchange(
-                0,
-                WRITER_BIT,
-                Ordering::Acquire,
-                Ordering::Relaxed
-            ).is_ok() {
+            if self
+                .state
+                .compare_exchange(0, WRITER_BIT, Ordering::Acquire, Ordering::Relaxed)
+                .is_ok()
+            {
                 self.writer_waiting.fetch_sub(1, Ordering::Relaxed);
                 return RwLockWriteGuard { lock: self };
             }
@@ -353,12 +363,11 @@ impl<T> RwLock<T> {
 
     /// Try to acquire write lock
     pub fn try_write(&self) -> Option<RwLockWriteGuard<T>> {
-        if self.state.compare_exchange(
-            0,
-            WRITER_BIT,
-            Ordering::Acquire,
-            Ordering::Relaxed
-        ).is_ok() {
+        if self
+            .state
+            .compare_exchange(0, WRITER_BIT, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             Some(RwLockWriteGuard { lock: self })
         } else {
             None
@@ -534,7 +543,7 @@ impl<T> Once<T> {
                 ONCE_INIT,
                 ONCE_RUNNING,
                 Ordering::Acquire,
-                Ordering::Acquire
+                Ordering::Acquire,
             ) {
                 Ok(_) => {
                     // We won the race, initialize
@@ -554,7 +563,7 @@ impl<T> Once<T> {
                         spin_hint();
                     }
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
     }
@@ -644,7 +653,9 @@ impl IrqCriticalSection {
         }
         crate::smp::current().preempt_disable();
 
-        IrqCriticalSectionGuard { irq_was_enabled: irq_enabled }
+        IrqCriticalSectionGuard {
+            irq_was_enabled: irq_enabled,
+        }
     }
 }
 

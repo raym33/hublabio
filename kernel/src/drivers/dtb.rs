@@ -43,7 +43,7 @@ pub struct DeviceNode {
     pub name: String,
     pub unit_address: Option<u64>,
     pub compatible: Option<String>,
-    pub reg: Option<Vec<(u64, u64)>>,  // (address, size) pairs
+    pub reg: Option<Vec<(u64, u64)>>, // (address, size) pairs
     pub interrupts: Option<Vec<u32>>,
     pub children: Vec<DeviceNode>,
 }
@@ -124,9 +124,7 @@ pub fn parse(dtb_addr: usize) {
     crate::kprintln!("  DTB: version {}, {} bytes", version, total_size);
 
     // Create slice for entire DTB
-    let data = unsafe {
-        core::slice::from_raw_parts(dtb_addr as *const u8, total_size)
-    };
+    let data = unsafe { core::slice::from_raw_parts(dtb_addr as *const u8, total_size) };
 
     // Parse structure block
     let mut offset = struct_offset;
@@ -202,9 +200,7 @@ pub fn find_compatible(dtb_addr: usize, compatible: &str) -> Option<(u64, u64)> 
     let struct_offset = u32::from_be(header.off_dt_struct) as usize;
     let strings_offset = u32::from_be(header.off_dt_strings) as usize;
 
-    let data = unsafe {
-        core::slice::from_raw_parts(dtb_addr as *const u8, total_size)
-    };
+    let data = unsafe { core::slice::from_raw_parts(dtb_addr as *const u8, total_size) };
 
     let mut offset = struct_offset;
     let mut found_compatible = false;

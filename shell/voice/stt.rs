@@ -2,10 +2,10 @@
 //!
 //! Whisper-style speech recognition for HubLab IO.
 
-use alloc::string::String;
-use alloc::vec::Vec;
-use alloc::sync::Arc;
 use super::audio::AudioBuffer;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 /// Transcription result
 #[derive(Clone, Debug)]
@@ -106,11 +106,11 @@ pub enum SttError {
 /// Whisper model sizes
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WhisperModel {
-    Tiny,      // ~39M params, ~75MB
-    Base,      // ~74M params, ~142MB
-    Small,     // ~244M params, ~466MB
-    Medium,    // ~769M params, ~1.5GB
-    Large,     // ~1.5B params, ~2.9GB
+    Tiny,   // ~39M params, ~75MB
+    Base,   // ~74M params, ~142MB
+    Small,  // ~244M params, ~466MB
+    Medium, // ~769M params, ~1.5GB
+    Large,  // ~1.5B params, ~2.9GB
 }
 
 impl WhisperModel {
@@ -174,9 +174,7 @@ impl WhisperStt {
     /// Preprocess audio for Whisper
     fn preprocess_audio(&self, audio: &[i16], sample_rate: u32) -> Vec<f32> {
         // Convert to f32
-        let mut samples: Vec<f32> = audio.iter()
-            .map(|&s| s as f32 / 32768.0)
-            .collect();
+        let mut samples: Vec<f32> = audio.iter().map(|&s| s as f32 / 32768.0).collect();
 
         // Resample to 16kHz if needed
         if sample_rate != 16000 {
@@ -204,16 +202,14 @@ impl SpeechToText for WhisperStt {
 
     fn supported_languages(&self) -> &[&str] {
         &[
-            "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr",
-            "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi",
-            "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no",
-            "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk",
-            "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk",
-            "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw",
-            "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc",
-            "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
-            "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl",
-            "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su",
+            "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar",
+            "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu",
+            "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa",
+            "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn",
+            "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc",
+            "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn",
+            "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw",
+            "su",
         ]
     }
 
@@ -243,7 +239,10 @@ impl SpeechToText for WhisperStt {
 
         Ok(TranscriptionResult {
             text: String::from("[Transcription would appear here]"),
-            language: config.language.clone().unwrap_or_else(|| String::from("en")),
+            language: config
+                .language
+                .clone()
+                .unwrap_or_else(|| String::from("en")),
             confidence: 0.95,
             words: Vec::new(),
             processing_time_ms: 100,
@@ -307,7 +306,7 @@ impl StreamingStt {
             stt,
             buffer: Vec::new(),
             buffer_duration_ms: 0,
-            chunk_duration_ms: 5000,  // 5 second chunks
+            chunk_duration_ms: 5000, // 5 second chunks
             sample_rate,
         }
     }
@@ -315,7 +314,8 @@ impl StreamingStt {
     /// Add audio samples
     pub fn add_audio(&mut self, samples: &[i16]) {
         self.buffer.extend_from_slice(samples);
-        self.buffer_duration_ms = (self.buffer.len() as u64 * 1000 / self.sample_rate as u64) as u32;
+        self.buffer_duration_ms =
+            (self.buffer.len() as u64 * 1000 / self.sample_rate as u64) as u32;
     }
 
     /// Process if enough audio
@@ -328,7 +328,8 @@ impl StreamingStt {
             if self.buffer.len() > keep_samples {
                 self.buffer = self.buffer[self.buffer.len() - keep_samples..].to_vec();
             }
-            self.buffer_duration_ms = (self.buffer.len() as u64 * 1000 / self.sample_rate as u64) as u32;
+            self.buffer_duration_ms =
+                (self.buffer.len() as u64 * 1000 / self.sample_rate as u64) as u32;
 
             result
         } else {

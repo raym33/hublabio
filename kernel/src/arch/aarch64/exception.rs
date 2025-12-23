@@ -10,8 +10,8 @@ use core::arch::asm;
 pub enum ExceptionClass {
     Unknown = 0x00,
     WfeWfi = 0x01,
-    Svc64 = 0x15,      // Syscall from AArch64
-    Svc32 = 0x11,      // Syscall from AArch32
+    Svc64 = 0x15, // Syscall from AArch64
+    Svc32 = 0x11, // Syscall from AArch32
     InstrAbortLower = 0x20,
     InstrAbortSame = 0x21,
     DataAbortLower = 0x24,
@@ -54,12 +54,12 @@ impl From<u32> for ExceptionClass {
 #[repr(C)]
 #[derive(Debug)]
 pub struct ExceptionFrame {
-    pub x: [u64; 31],   // x0-x30
-    pub sp: u64,        // Stack pointer
-    pub elr: u64,       // Exception Link Register (return address)
-    pub spsr: u64,      // Saved Program Status Register
-    pub esr: u64,       // Exception Syndrome Register
-    pub far: u64,       // Fault Address Register
+    pub x: [u64; 31], // x0-x30
+    pub sp: u64,      // Stack pointer
+    pub elr: u64,     // Exception Link Register (return address)
+    pub spsr: u64,    // Saved Program Status Register
+    pub esr: u64,     // Exception Syndrome Register
+    pub far: u64,     // Fault Address Register
 }
 
 /// Initialize exception handling
@@ -265,13 +265,7 @@ fn handle_page_fault(
     };
 
     // Parse fault context
-    let ctx = crate::pagefault::parse_fault_info(
-        frame.esr,
-        frame.far,
-        frame.elr,
-        user_mode,
-        pid,
-    );
+    let ctx = crate::pagefault::parse_fault_info(frame.esr, frame.far, frame.elr, user_mode, pid);
 
     // Let the page fault handler deal with it
     let result = crate::pagefault::handle_page_fault(&ctx);
@@ -349,7 +343,7 @@ fn handle_irq(_frame: &ExceptionFrame) {
 
     // Handle timer interrupt (IRQ 30 for ARM Generic Timer on most platforms)
     const TIMER_IRQ: u32 = 30;
-    const TIMER_IRQ_NS: u32 = 27;  // Non-secure physical timer
+    const TIMER_IRQ_NS: u32 = 27; // Non-secure physical timer
 
     if irq == TIMER_IRQ || irq == TIMER_IRQ_NS {
         handle_timer_interrupt();
@@ -372,7 +366,10 @@ fn handle_timer_interrupt() {
         // Decrement time slice
         let remaining = task.time_slice.load(core::sync::atomic::Ordering::Relaxed);
         if remaining > 0 {
-            task.time_slice.store(remaining.saturating_sub(100), core::sync::atomic::Ordering::Relaxed);
+            task.time_slice.store(
+                remaining.saturating_sub(100),
+                core::sync::atomic::Ordering::Relaxed,
+            );
         }
         remaining <= 100 // Schedule if time slice exhausted
     } else {
@@ -405,14 +402,14 @@ fn handle_serror(frame: &ExceptionFrame) {
 /// Enable IRQ
 pub fn enable_irq() {
     unsafe {
-        asm!("msr daifclr, #2");  // Clear I bit
+        asm!("msr daifclr, #2"); // Clear I bit
     }
 }
 
 /// Disable IRQ
 pub fn disable_irq() {
     unsafe {
-        asm!("msr daifset, #2");  // Set I bit
+        asm!("msr daifset, #2"); // Set I bit
     }
 }
 

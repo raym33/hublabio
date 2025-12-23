@@ -5,12 +5,12 @@
 
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use super::{NpuInfo, NpuType, NpuError, NpuCapabilities, NpuDtype, ModelFormat};
 use super::hailo::{HailoDevice, HailoModel};
+use super::{ModelFormat, NpuCapabilities, NpuDtype, NpuError, NpuInfo, NpuType};
 
 /// Inference result
 #[derive(Clone, Debug)]
@@ -54,9 +54,12 @@ impl TensorData {
         if self.dtype != NpuDtype::Float32 {
             return None;
         }
-        Some(self.data.chunks(4)
-            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-            .collect())
+        Some(
+            self.data
+                .chunks(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect(),
+        )
     }
 
     /// Get data as u8 slice
@@ -93,7 +96,11 @@ pub trait NpuBackend: Send + Sync {
     fn unload_model(&mut self, handle: ModelHandle) -> Result<(), NpuError>;
 
     /// Run inference
-    fn infer(&mut self, handle: ModelHandle, inputs: &[TensorData]) -> Result<InferenceResult, NpuError>;
+    fn infer(
+        &mut self,
+        handle: ModelHandle,
+        inputs: &[TensorData],
+    ) -> Result<InferenceResult, NpuError>;
 
     /// Get model input info
     fn get_input_info(&self, handle: ModelHandle) -> Result<Vec<TensorInfo>, NpuError>;
@@ -225,13 +232,21 @@ impl NpuManager {
     }
 
     /// Load model on active backend
-    pub fn load_model(&mut self, data: &[u8], format: ModelFormat) -> Result<ModelHandle, NpuError> {
+    pub fn load_model(
+        &mut self,
+        data: &[u8],
+        format: ModelFormat,
+    ) -> Result<ModelHandle, NpuError> {
         let backend = self.active()?;
         backend.load_model(data, format)
     }
 
     /// Run inference on active backend
-    pub fn infer(&mut self, handle: ModelHandle, inputs: &[TensorData]) -> Result<InferenceResult, NpuError> {
+    pub fn infer(
+        &mut self,
+        handle: ModelHandle,
+        inputs: &[TensorData],
+    ) -> Result<InferenceResult, NpuError> {
         let backend = self.active()?;
         backend.infer(handle, inputs)
     }
@@ -315,8 +330,13 @@ impl NpuBackend for HailoBackend {
         }
     }
 
-    fn infer(&mut self, handle: ModelHandle, inputs: &[TensorData]) -> Result<InferenceResult, NpuError> {
-        let idx = self.find_model(handle)
+    fn infer(
+        &mut self,
+        handle: ModelHandle,
+        inputs: &[TensorData],
+    ) -> Result<InferenceResult, NpuError> {
+        let idx = self
+            .find_model(handle)
             .ok_or_else(|| NpuError::InferenceError(String::from("Model not loaded")))?;
 
         let (_handle, model) = &self.loaded_models[idx];
@@ -348,7 +368,8 @@ impl NpuBackend for HailoBackend {
         }
 
         // Convert outputs to TensorData
-        let output_tensors: Vec<TensorData> = model.outputs()
+        let output_tensors: Vec<TensorData> = model
+            .outputs()
             .iter()
             .zip(outputs.into_iter())
             .map(|(info, data)| TensorData {
@@ -368,33 +389,43 @@ impl NpuBackend for HailoBackend {
     }
 
     fn get_input_info(&self, handle: ModelHandle) -> Result<Vec<TensorInfo>, NpuError> {
-        let idx = self.find_model(handle)
+        let idx = self
+            .find_model(handle)
             .ok_or_else(|| NpuError::InferenceError(String::from("Model not loaded")))?;
 
         let (_, model) = &self.loaded_models[idx];
-        Ok(model.inputs().iter().map(|t| TensorInfo {
-            name: t.name.clone(),
-            shape: t.shape.clone(),
-            dtype: t.dtype,
-            quantized: t.dtype == NpuDtype::Int8 || t.dtype == NpuDtype::Uint8,
-            scale: None,
-            zero_point: None,
-        }).collect())
+        Ok(model
+            .inputs()
+            .iter()
+            .map(|t| TensorInfo {
+                name: t.name.clone(),
+                shape: t.shape.clone(),
+                dtype: t.dtype,
+                quantized: t.dtype == NpuDtype::Int8 || t.dtype == NpuDtype::Uint8,
+                scale: None,
+                zero_point: None,
+            })
+            .collect())
     }
 
     fn get_output_info(&self, handle: ModelHandle) -> Result<Vec<TensorInfo>, NpuError> {
-        let idx = self.find_model(handle)
+        let idx = self
+            .find_model(handle)
             .ok_or_else(|| NpuError::InferenceError(String::from("Model not loaded")))?;
 
         let (_, model) = &self.loaded_models[idx];
-        Ok(model.outputs().iter().map(|t| TensorInfo {
-            name: t.name.clone(),
-            shape: t.shape.clone(),
-            dtype: t.dtype,
-            quantized: t.dtype == NpuDtype::Int8 || t.dtype == NpuDtype::Uint8,
-            scale: None,
-            zero_point: None,
-        }).collect())
+        Ok(model
+            .outputs()
+            .iter()
+            .map(|t| TensorInfo {
+                name: t.name.clone(),
+                shape: t.shape.clone(),
+                dtype: t.dtype,
+                quantized: t.dtype == NpuDtype::Int8 || t.dtype == NpuDtype::Uint8,
+                scale: None,
+                zero_point: None,
+            })
+            .collect())
     }
 
     fn reset(&mut self) -> Result<(), NpuError> {
@@ -529,12 +560,11 @@ impl ClassificationPostprocessor {
         let mut indexed: Vec<(usize, f32)> = scores.into_iter().enumerate().collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(core::cmp::Ordering::Equal));
 
-        indexed.into_iter()
+        indexed
+            .into_iter()
             .take(self.top_k)
             .map(|(idx, score)| {
-                let label = self.labels.as_ref()
-                    .and_then(|l| l.get(idx))
-                    .cloned();
+                let label = self.labels.as_ref().and_then(|l| l.get(idx)).cloned();
                 ClassificationResult {
                     class_id: idx,
                     score,
@@ -648,7 +678,11 @@ impl DetectionPostprocessor {
     /// Non-maximum suppression
     fn nms(&self, detections: &mut Vec<DetectionResult>) {
         // Sort by confidence
-        detections.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(core::cmp::Ordering::Equal));
+        detections.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(core::cmp::Ordering::Equal)
+        });
 
         let mut keep = vec![true; detections.len()];
 
@@ -761,8 +795,18 @@ mod tests {
 
     #[test]
     fn test_bounding_box_iou() {
-        let box1 = BoundingBox { x1: 0.0, y1: 0.0, x2: 0.5, y2: 0.5 };
-        let box2 = BoundingBox { x1: 0.25, y1: 0.25, x2: 0.75, y2: 0.75 };
+        let box1 = BoundingBox {
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.5,
+            y2: 0.5,
+        };
+        let box2 = BoundingBox {
+            x1: 0.25,
+            y1: 0.25,
+            x2: 0.75,
+            y2: 0.75,
+        };
 
         let iou = box1.iou(&box2);
         // Intersection: 0.25 * 0.25 = 0.0625

@@ -3,8 +3,8 @@
 //! Syscall filtering using BPF (Berkeley Packet Filter) programs.
 //! Allows processes to restrict which syscalls they can make.
 
-use alloc::vec::Vec;
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU32, Ordering};
 use spin::RwLock;
 
@@ -110,9 +110,9 @@ pub mod bpf {
     pub const BPF_MISC: u16 = 0x07;
 
     // Load sizes
-    pub const BPF_W: u16 = 0x00;  // 32-bit word
-    pub const BPF_H: u16 = 0x08;  // 16-bit half-word
-    pub const BPF_B: u16 = 0x10;  // 8-bit byte
+    pub const BPF_W: u16 = 0x00; // 32-bit word
+    pub const BPF_H: u16 = 0x08; // 16-bit half-word
+    pub const BPF_B: u16 = 0x10; // 8-bit byte
 
     // Load modes
     pub const BPF_IMM: u16 = 0x00;
@@ -143,11 +143,11 @@ pub mod bpf {
     pub const BPF_JSET: u16 = 0x40;
 
     // Sources
-    pub const BPF_K: u16 = 0x00;  // Constant
-    pub const BPF_X: u16 = 0x08;  // Index register
+    pub const BPF_K: u16 = 0x00; // Constant
+    pub const BPF_X: u16 = 0x08; // Index register
 
     // Return
-    pub const BPF_A: u16 = 0x10;  // Accumulator
+    pub const BPF_A: u16 = 0x10; // Accumulator
 }
 
 /// Syscall data passed to BPF filter
@@ -272,16 +272,16 @@ impl SeccompFilter {
 
     /// Execute BPF program
     fn execute(&self, data: &SeccompData) -> u32 {
-        let mut a: u32 = 0;  // Accumulator
-        let mut x: u32 = 0;  // Index register
-        let mut mem: [u32; 16] = [0; 16];  // Scratch memory
+        let mut a: u32 = 0; // Accumulator
+        let mut x: u32 = 0; // Index register
+        let mut mem: [u32; 16] = [0; 16]; // Scratch memory
         let mut pc: usize = 0;
 
         // Convert data to byte array for BPF_ABS loads
         let data_bytes = unsafe {
             core::slice::from_raw_parts(
                 data as *const SeccompData as *const u8,
-                core::mem::size_of::<SeccompData>()
+                core::mem::size_of::<SeccompData>(),
             )
         };
 
@@ -292,69 +292,63 @@ impl SeccompFilter {
             let mode = insn.code & 0xe0;
 
             match class {
-                bpf::BPF_LD => {
-                    match mode {
-                        bpf::BPF_IMM => {
-                            a = insn.k;
-                        }
-                        bpf::BPF_ABS => {
-                            let offset = insn.k as usize;
-                            a = match size {
-                                bpf::BPF_W => {
-                                    if offset + 4 <= data_bytes.len() {
-                                        u32::from_ne_bytes([
-                                            data_bytes[offset],
-                                            data_bytes[offset + 1],
-                                            data_bytes[offset + 2],
-                                            data_bytes[offset + 3],
-                                        ])
-                                    } else {
-                                        0
-                                    }
-                                }
-                                bpf::BPF_H => {
-                                    if offset + 2 <= data_bytes.len() {
-                                        u16::from_ne_bytes([
-                                            data_bytes[offset],
-                                            data_bytes[offset + 1],
-                                        ]) as u32
-                                    } else {
-                                        0
-                                    }
-                                }
-                                bpf::BPF_B => {
-                                    if offset < data_bytes.len() {
-                                        data_bytes[offset] as u32
-                                    } else {
-                                        0
-                                    }
-                                }
-                                _ => 0,
-                            };
-                        }
-                        bpf::BPF_MEM => {
-                            let idx = insn.k as usize;
-                            if idx < 16 {
-                                a = mem[idx];
-                            }
-                        }
-                        _ => {}
+                bpf::BPF_LD => match mode {
+                    bpf::BPF_IMM => {
+                        a = insn.k;
                     }
-                }
-                bpf::BPF_LDX => {
-                    match mode {
-                        bpf::BPF_IMM => {
-                            x = insn.k;
-                        }
-                        bpf::BPF_MEM => {
-                            let idx = insn.k as usize;
-                            if idx < 16 {
-                                x = mem[idx];
+                    bpf::BPF_ABS => {
+                        let offset = insn.k as usize;
+                        a = match size {
+                            bpf::BPF_W => {
+                                if offset + 4 <= data_bytes.len() {
+                                    u32::from_ne_bytes([
+                                        data_bytes[offset],
+                                        data_bytes[offset + 1],
+                                        data_bytes[offset + 2],
+                                        data_bytes[offset + 3],
+                                    ])
+                                } else {
+                                    0
+                                }
                             }
-                        }
-                        _ => {}
+                            bpf::BPF_H => {
+                                if offset + 2 <= data_bytes.len() {
+                                    u16::from_ne_bytes([data_bytes[offset], data_bytes[offset + 1]])
+                                        as u32
+                                } else {
+                                    0
+                                }
+                            }
+                            bpf::BPF_B => {
+                                if offset < data_bytes.len() {
+                                    data_bytes[offset] as u32
+                                } else {
+                                    0
+                                }
+                            }
+                            _ => 0,
+                        };
                     }
-                }
+                    bpf::BPF_MEM => {
+                        let idx = insn.k as usize;
+                        if idx < 16 {
+                            a = mem[idx];
+                        }
+                    }
+                    _ => {}
+                },
+                bpf::BPF_LDX => match mode {
+                    bpf::BPF_IMM => {
+                        x = insn.k;
+                    }
+                    bpf::BPF_MEM => {
+                        let idx = insn.k as usize;
+                        if idx < 16 {
+                            x = mem[idx];
+                        }
+                    }
+                    _ => {}
+                },
                 bpf::BPF_ST => {
                     let idx = insn.k as usize;
                     if idx < 16 {
@@ -369,26 +363,46 @@ impl SeccompFilter {
                 }
                 bpf::BPF_ALU => {
                     let op = insn.code & 0xf0;
-                    let src = if insn.code & bpf::BPF_X != 0 { x } else { insn.k };
+                    let src = if insn.code & bpf::BPF_X != 0 {
+                        x
+                    } else {
+                        insn.k
+                    };
 
                     a = match op {
                         bpf::BPF_ADD => a.wrapping_add(src),
                         bpf::BPF_SUB => a.wrapping_sub(src),
                         bpf::BPF_MUL => a.wrapping_mul(src),
-                        bpf::BPF_DIV => if src != 0 { a / src } else { 0 },
+                        bpf::BPF_DIV => {
+                            if src != 0 {
+                                a / src
+                            } else {
+                                0
+                            }
+                        }
                         bpf::BPF_OR => a | src,
                         bpf::BPF_AND => a & src,
                         bpf::BPF_LSH => a << (src & 31),
                         bpf::BPF_RSH => a >> (src & 31),
                         bpf::BPF_NEG => (!a).wrapping_add(1),
-                        bpf::BPF_MOD => if src != 0 { a % src } else { 0 },
+                        bpf::BPF_MOD => {
+                            if src != 0 {
+                                a % src
+                            } else {
+                                0
+                            }
+                        }
                         bpf::BPF_XOR => a ^ src,
                         _ => a,
                     };
                 }
                 bpf::BPF_JMP => {
                     let op = insn.code & 0xf0;
-                    let src = if insn.code & bpf::BPF_X != 0 { x } else { insn.k };
+                    let src = if insn.code & bpf::BPF_X != 0 {
+                        x
+                    } else {
+                        insn.k
+                    };
 
                     let cond = match op {
                         bpf::BPF_JA => {
@@ -402,10 +416,18 @@ impl SeccompFilter {
                         _ => false,
                     };
 
-                    pc += if cond { insn.jt as usize } else { insn.jf as usize };
+                    pc += if cond {
+                        insn.jt as usize
+                    } else {
+                        insn.jf as usize
+                    };
                 }
                 bpf::BPF_RET => {
-                    return if insn.code & bpf::BPF_A != 0 { a } else { insn.k };
+                    return if insn.code & bpf::BPF_A != 0 {
+                        a
+                    } else {
+                        insn.k
+                    };
                 }
                 bpf::BPF_MISC => {
                     let op = insn.code & 0xf8;
@@ -545,7 +567,11 @@ pub fn set_strict_mode(pid: Pid) -> Result<(), SeccompError> {
 }
 
 /// Set filter mode with BPF program
-pub fn set_filter_mode(pid: Pid, filter: SeccompFilter, sync_flags: u32) -> Result<(), SeccompError> {
+pub fn set_filter_mode(
+    pid: Pid,
+    filter: SeccompFilter,
+    sync_flags: u32,
+) -> Result<(), SeccompError> {
     let mut states = SECCOMP_STATE.write();
     let state = states.entry(pid).or_insert(SeccompState::default());
 
@@ -732,7 +758,8 @@ pub fn allow_syscalls(allowed: &[i32]) -> SeccompFilter {
     // Load syscall number
     insns.push(BpfInsn::new(
         bpf::BPF_LD | bpf::BPF_W | bpf::BPF_ABS,
-        0, 0,
+        0,
+        0,
         0, // offsetof(SeccompData, nr)
     ));
 
@@ -742,7 +769,7 @@ pub fn allow_syscalls(allowed: &[i32]) -> SeccompFilter {
         insns.push(BpfInsn::new(
             bpf::BPF_JMP | bpf::BPF_JEQ | bpf::BPF_K,
             (remaining + 1) as u8, // Jump to ALLOW if match
-            0,                      // Continue checking
+            0,                     // Continue checking
             nr as u32,
         ));
     }
@@ -750,14 +777,16 @@ pub fn allow_syscalls(allowed: &[i32]) -> SeccompFilter {
     // Default: kill
     insns.push(BpfInsn::new(
         bpf::BPF_RET | bpf::BPF_K,
-        0, 0,
+        0,
+        0,
         SeccompAction::KillThread.to_ret(),
     ));
 
     // Allow
     insns.push(BpfInsn::new(
         bpf::BPF_RET | bpf::BPF_K,
-        0, 0,
+        0,
+        0,
         SeccompAction::Allow.to_ret(),
     ));
 
@@ -771,7 +800,8 @@ pub fn deny_syscalls(denied: &[i32], default_action: SeccompAction) -> SeccompFi
     // Load syscall number
     insns.push(BpfInsn::new(
         bpf::BPF_LD | bpf::BPF_W | bpf::BPF_ABS,
-        0, 0,
+        0,
+        0,
         0,
     ));
 
@@ -789,14 +819,16 @@ pub fn deny_syscalls(denied: &[i32], default_action: SeccompAction) -> SeccompFi
     // Default: allow (or specified action)
     insns.push(BpfInsn::new(
         bpf::BPF_RET | bpf::BPF_K,
-        0, 0,
+        0,
+        0,
         default_action.to_ret(),
     ));
 
     // Deny action
     insns.push(BpfInsn::new(
         bpf::BPF_RET | bpf::BPF_K,
-        0, 0,
+        0,
+        0,
         SeccompAction::KillThread.to_ret(),
     ));
 

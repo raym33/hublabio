@@ -5,14 +5,14 @@
 
 use alloc::collections::{BTreeMap, VecDeque};
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicU64, AtomicU32, AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use spin::{Mutex, RwLock};
 
 use crate::process::{Pid, ProcessState};
 use crate::smp;
 
-pub mod policy;
 pub mod ai;
+pub mod policy;
 
 /// Time slice in microseconds (default 10ms)
 const DEFAULT_TIME_SLICE: u64 = 10_000;
@@ -112,11 +112,11 @@ pub struct SchedInfo {
     pub time_slice: u64,
     pub time_used: u64,
     pub last_run: u64,
-    pub cpu_affinity: u64,  // Bitmask of allowed CPUs
-    pub last_cpu: u32,       // Last CPU this process ran on
+    pub cpu_affinity: u64,          // Bitmask of allowed CPUs
+    pub last_cpu: u32,              // Last CPU this process ran on
     pub preferred_cpu: Option<u32>, // Preferred CPU for cache affinity
     pub ai_predicted_runtime: Option<u64>,
-    pub migrations: u64,     // Number of times migrated between CPUs
+    pub migrations: u64, // Number of times migrated between CPUs
 }
 
 impl SchedInfo {
@@ -237,7 +237,7 @@ impl Scheduler {
         // AI optimization: adjust time slice based on policy
         info.time_slice = match policy {
             SchedulingPolicy::AiOptimized => DEFAULT_TIME_SLICE * 2, // Longer for AI
-            SchedulingPolicy::RealTimeFifo => u64::MAX, // Run until blocked
+            SchedulingPolicy::RealTimeFifo => u64::MAX,              // Run until blocked
             SchedulingPolicy::Batch => DEFAULT_TIME_SLICE * 4,
             _ => DEFAULT_TIME_SLICE,
         };
@@ -400,7 +400,9 @@ impl Scheduler {
         }
 
         // Get this CPU's local queue count
-        let local_count = PER_CPU_SCHED[cpu as usize].local_count.load(Ordering::Acquire) as usize;
+        let local_count = PER_CPU_SCHED[cpu as usize]
+            .local_count
+            .load(Ordering::Acquire) as usize;
 
         // If we're below average, try to pull work from busier CPUs
         if local_count < avg_load {
@@ -422,7 +424,9 @@ impl Scheduler {
                 continue;
             }
 
-            let count = PER_CPU_SCHED[cpu as usize].local_count.load(Ordering::Acquire);
+            let count = PER_CPU_SCHED[cpu as usize]
+                .local_count
+                .load(Ordering::Acquire);
             if count > busiest_count {
                 busiest_count = count;
                 busiest_cpu = cpu;
@@ -475,7 +479,9 @@ impl Scheduler {
         self.check_sleeping(current_time);
 
         // Check if current process has exhausted its time slice
-        let current = PER_CPU_SCHED[cpu as usize].current_pid.load(Ordering::Acquire);
+        let current = PER_CPU_SCHED[cpu as usize]
+            .current_pid
+            .load(Ordering::Acquire);
         if current != 0 {
             if let Some(info) = self.processes.get_mut(&Pid(current)) {
                 info.time_used += 1;
@@ -498,9 +504,13 @@ impl Scheduler {
         }
 
         // Periodic load balancing
-        let last_balance = PER_CPU_SCHED[cpu as usize].last_balance.load(Ordering::Acquire);
+        let last_balance = PER_CPU_SCHED[cpu as usize]
+            .last_balance
+            .load(Ordering::Acquire);
         if current_time - last_balance >= LOAD_BALANCE_INTERVAL {
-            PER_CPU_SCHED[cpu as usize].last_balance.store(current_time, Ordering::Release);
+            PER_CPU_SCHED[cpu as usize]
+                .last_balance
+                .store(current_time, Ordering::Release);
             self.load_balance(cpu);
         }
     }
@@ -536,7 +546,10 @@ pub fn init() {
     let scheduler = Scheduler::new();
     *SCHEDULER.write() = Some(scheduler);
 
-    crate::kprintln!("  Scheduler initialized ({} priority levels)", PRIORITY_LEVELS);
+    crate::kprintln!(
+        "  Scheduler initialized ({} priority levels)",
+        PRIORITY_LEVELS
+    );
 }
 
 /// Load AI model for scheduling optimization
@@ -728,7 +741,9 @@ pub fn pick_next_for_cpu(cpu: u32) -> Option<Pid> {
 pub fn run_task(cpu: u32) {
     if let Some(pid) = pick_next_for_cpu(cpu) {
         // Update per-CPU current PID
-        PER_CPU_SCHED[cpu as usize].current_pid.store(pid.0, Ordering::Release);
+        PER_CPU_SCHED[cpu as usize]
+            .current_pid
+            .store(pid.0, Ordering::Release);
 
         // Perform context switch
         if let Some(to_task) = get_task_for_pid(pid) {
@@ -797,7 +812,10 @@ pub fn cpu_stats(cpu: u32) -> Option<SchedulerStats> {
     if cpu as usize >= smp::MAX_CPUS {
         return None;
     }
-    SCHEDULER.read().as_ref().map(|s| s.per_cpu_stats[cpu as usize])
+    SCHEDULER
+        .read()
+        .as_ref()
+        .map(|s| s.per_cpu_stats[cpu as usize])
 }
 
 /// Get current PID for a specific CPU
@@ -805,7 +823,9 @@ pub fn current_pid_on(cpu: u32) -> Pid {
     if cpu as usize >= smp::MAX_CPUS {
         return Pid(0);
     }
-    Pid(PER_CPU_SCHED[cpu as usize].current_pid.load(Ordering::Acquire))
+    Pid(PER_CPU_SCHED[cpu as usize]
+        .current_pid
+        .load(Ordering::Acquire))
 }
 
 /// Migrate a process to a specific CPU
@@ -829,7 +849,11 @@ pub fn migrate(pid: Pid, target_cpu: u32) -> bool {
 
             // If process is currently running on another CPU, send reschedule IPI
             for cpu in 0..smp::MAX_CPUS as u32 {
-                if PER_CPU_SCHED[cpu as usize].current_pid.load(Ordering::Acquire) == pid.0 {
+                if PER_CPU_SCHED[cpu as usize]
+                    .current_pid
+                    .load(Ordering::Acquire)
+                    == pid.0
+                {
                     if cpu != target_cpu {
                         smp::reschedule_cpu(cpu);
                     }
@@ -846,7 +870,11 @@ pub fn migrate(pid: Pid, target_cpu: u32) -> bool {
 
 /// Get total number of runnable processes
 pub fn runnable_count() -> usize {
-    SCHEDULER.read().as_ref().map(|s| s.runnable_count).unwrap_or(0)
+    SCHEDULER
+        .read()
+        .as_ref()
+        .map(|s| s.runnable_count)
+        .unwrap_or(0)
 }
 
 /// Called when a process exits - update per-CPU state if needed
@@ -854,11 +882,9 @@ pub fn on_exit(pid: Pid) {
     // Clear from any per-CPU current PID
     for cpu in 0..smp::MAX_CPUS {
         let pcpu_sched = &PER_CPU_SCHED[cpu];
-        let _ = pcpu_sched.current_pid.compare_exchange(
-            pid.0,
-            0,
-            Ordering::AcqRel,
-            Ordering::Relaxed,
-        );
+        let _ =
+            pcpu_sched
+                .current_pid
+                .compare_exchange(pid.0, 0, Ordering::AcqRel, Ordering::Relaxed);
     }
 }

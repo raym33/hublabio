@@ -3,7 +3,7 @@
 //! Hardware and software watchdog support for system stability.
 //! Detects lockups and triggers recovery actions.
 
-use core::sync::atomic::{AtomicBool, AtomicU64, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use spin::Mutex;
 
 /// Watchdog configuration
@@ -302,10 +302,7 @@ impl SoftLockupDetector {
 
         if elapsed_s > threshold && last > 0 {
             self.lockup_count.fetch_add(1, Ordering::SeqCst);
-            crate::kerror!(
-                "Soft lockup detected! CPU stuck for {} seconds",
-                elapsed_s
-            );
+            crate::kerror!("Soft lockup detected! CPU stuck for {} seconds", elapsed_s);
 
             // Dump state
             crate::arch::dump_state();
@@ -488,7 +485,9 @@ pub fn generate_info() -> alloc::string::String {
 
 /// Initialize watchdog subsystem
 pub fn init() {
-    WATCHDOG.boot_time.store(current_time_ns(), Ordering::SeqCst);
+    WATCHDOG
+        .boot_time
+        .store(current_time_ns(), Ordering::SeqCst);
 
     // Initialize soft lockup detector
     SOFT_LOCKUP.touch();

@@ -4,8 +4,8 @@
 
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
-use spin::Mutex;
 use core::sync::atomic::{AtomicU64, Ordering};
+use spin::Mutex;
 
 /// Signal numbers (POSIX-compatible)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -358,8 +358,8 @@ pub fn send_signal(pid: u32, sig: Signal, sender_pid: u32) -> Result<(), &'stati
     crate::kdebug!("Signal: Sending {:?} to pid {}", sig, pid);
 
     // Get the target process
-    let process = crate::process::get(crate::process::Pid(pid as u64))
-        .ok_or("Process not found")?;
+    let process =
+        crate::process::get(crate::process::Pid(pid as u64)).ok_or("Process not found")?;
 
     // Check permissions (can only send to own processes or with appropriate caps)
     // For SIGKILL/SIGSTOP, need CAP_KILL or same UID
@@ -462,7 +462,8 @@ pub fn deliver_signals(state: &mut SignalState) -> Option<Signal> {
                     }
                     task.process.exit(-(sig.as_num() as i32));
                 } else if sig.stops() {
-                    task.process.set_state(crate::process::ProcessState::Stopped);
+                    task.process
+                        .set_state(crate::process::ProcessState::Stopped);
                 }
                 // SIGCHLD, SIGURG, SIGWINCH are ignored by default
             }
@@ -477,7 +478,8 @@ pub fn deliver_signals(state: &mut SignalState) -> Option<Signal> {
                 task.process.exit(-(sig.as_num() as i32));
             }
             SignalAction::Stop => {
-                task.process.set_state(crate::process::ProcessState::Stopped);
+                task.process
+                    .set_state(crate::process::ProcessState::Stopped);
             }
             SignalAction::Continue => {
                 if let crate::process::ProcessState::Stopped = task.process.get_state() {
@@ -527,9 +529,9 @@ fn setup_signal_trampoline(
     // Set up for signal handler call
     ctx.pc = handler as u64;
     ctx.sp = sp as u64;
-    ctx.x[0] = sig.as_num() as u64;  // First arg: signal number
-    ctx.x[1] = 0;  // siginfo_t pointer (would be set up)
-    ctx.x[2] = 0;  // ucontext_t pointer (would be set up)
+    ctx.x[0] = sig.as_num() as u64; // First arg: signal number
+    ctx.x[1] = 0; // siginfo_t pointer (would be set up)
+    ctx.x[2] = 0; // ucontext_t pointer (would be set up)
 
     // x30 (link register) points to sigreturn trampoline
     // This is typically at a fixed kernel address or in VDSO
@@ -537,7 +539,8 @@ fn setup_signal_trampoline(
 
     crate::kdebug!(
         "Signal: Set up handler at 0x{:x} for signal {:?}",
-        handler, sig
+        handler,
+        sig
     );
 }
 
@@ -662,7 +665,8 @@ pub fn process_pending_signals() {
                         return;
                     }
                     Signal::SIGSTOP => {
-                        task.process.set_state(crate::process::ProcessState::Stopped);
+                        task.process
+                            .set_state(crate::process::ProcessState::Stopped);
                         crate::scheduler::schedule();
                     }
                     Signal::SIGCONT => {

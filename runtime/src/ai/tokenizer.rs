@@ -11,10 +11,10 @@ pub type TokenId = u32;
 
 /// Special tokens
 pub mod special {
-    pub const BOS: u32 = 1;  // Beginning of sequence
-    pub const EOS: u32 = 2;  // End of sequence
-    pub const PAD: u32 = 0;  // Padding
-    pub const UNK: u32 = 3;  // Unknown
+    pub const BOS: u32 = 1; // Beginning of sequence
+    pub const EOS: u32 = 2; // End of sequence
+    pub const PAD: u32 = 0; // Padding
+    pub const UNK: u32 = 3; // Unknown
 }
 
 /// BPE Tokenizer
@@ -33,11 +33,7 @@ pub struct Tokenizer {
 
 impl Tokenizer {
     /// Create a new tokenizer from GGUF metadata
-    pub fn from_gguf(
-        tokens: &[String],
-        scores: &[f32],
-        merges: &[String],
-    ) -> Self {
+    pub fn from_gguf(tokens: &[String], scores: &[f32], merges: &[String]) -> Self {
         let mut vocab = BTreeMap::new();
         let mut id_to_token = BTreeMap::new();
 

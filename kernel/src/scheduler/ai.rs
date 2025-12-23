@@ -127,7 +127,11 @@ impl SchedulerNN {
     /// ReLU activation
     #[inline]
     fn relu(x: f32) -> f32 {
-        if x > 0.0 { x } else { 0.0 }
+        if x > 0.0 {
+            x
+        } else {
+            0.0
+        }
     }
 
     /// Sigmoid activation
@@ -184,9 +188,7 @@ pub fn init() {
 
 /// Load model from memory
 pub fn load_model(addr: usize, size: usize) -> Result<(), &'static str> {
-    let data = unsafe {
-        core::slice::from_raw_parts(addr as *const u8, size)
-    };
+    let data = unsafe { core::slice::from_raw_parts(addr as *const u8, size) };
 
     unsafe {
         if let Some(ref mut nn) = SCHEDULER_NN {
@@ -204,9 +206,7 @@ pub fn predict(features: &ProcessFeatures) -> Option<SchedulingPrediction> {
         return None;
     }
 
-    unsafe {
-        SCHEDULER_NN.as_ref().map(|nn| nn.predict(features))
-    }
+    unsafe { SCHEDULER_NN.as_ref().map(|nn| nn.predict(features)) }
 }
 
 /// Check if AI is available

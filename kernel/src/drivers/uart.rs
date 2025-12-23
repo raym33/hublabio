@@ -27,28 +27,28 @@ pub mod base {
 
 /// PL011 UART registers (offsets from base)
 pub mod pl011 {
-    pub const DR: usize = 0x00;      // Data register
-    pub const FR: usize = 0x18;      // Flag register
-    pub const IBRD: usize = 0x24;    // Integer baud rate divisor
-    pub const FBRD: usize = 0x28;    // Fractional baud rate divisor
-    pub const LCRH: usize = 0x2C;    // Line control register
-    pub const CR: usize = 0x30;      // Control register
-    pub const IMSC: usize = 0x38;    // Interrupt mask set/clear
-    pub const ICR: usize = 0x44;     // Interrupt clear register
+    pub const DR: usize = 0x00; // Data register
+    pub const FR: usize = 0x18; // Flag register
+    pub const IBRD: usize = 0x24; // Integer baud rate divisor
+    pub const FBRD: usize = 0x28; // Fractional baud rate divisor
+    pub const LCRH: usize = 0x2C; // Line control register
+    pub const CR: usize = 0x30; // Control register
+    pub const IMSC: usize = 0x38; // Interrupt mask set/clear
+    pub const ICR: usize = 0x44; // Interrupt clear register
 
     // Flag register bits
-    pub const FR_TXFF: u32 = 1 << 5;   // Transmit FIFO full
-    pub const FR_RXFE: u32 = 1 << 4;   // Receive FIFO empty
-    pub const FR_BUSY: u32 = 1 << 3;   // UART busy
+    pub const FR_TXFF: u32 = 1 << 5; // Transmit FIFO full
+    pub const FR_RXFE: u32 = 1 << 4; // Receive FIFO empty
+    pub const FR_BUSY: u32 = 1 << 3; // UART busy
 
     // Line control register bits
-    pub const LCRH_WLEN_8: u32 = 0b11 << 5;  // 8-bit words
-    pub const LCRH_FEN: u32 = 1 << 4;        // Enable FIFOs
+    pub const LCRH_WLEN_8: u32 = 0b11 << 5; // 8-bit words
+    pub const LCRH_FEN: u32 = 1 << 4; // Enable FIFOs
 
     // Control register bits
-    pub const CR_UARTEN: u32 = 1 << 0;  // UART enable
-    pub const CR_TXE: u32 = 1 << 8;     // Transmit enable
-    pub const CR_RXE: u32 = 1 << 9;     // Receive enable
+    pub const CR_UARTEN: u32 = 1 << 0; // UART enable
+    pub const CR_TXE: u32 = 1 << 8; // Transmit enable
+    pub const CR_RXE: u32 = 1 << 9; // Receive enable
 }
 
 /// Global UART instance
@@ -234,5 +234,8 @@ pub fn try_getc() -> Option<u8> {
 
 /// Check if UART is ready
 pub fn is_ready() -> bool {
-    UART.lock().as_ref().map(|u| u.is_initialized()).unwrap_or(false)
+    UART.lock()
+        .as_ref()
+        .map(|u| u.is_initialized())
+        .unwrap_or(false)
 }

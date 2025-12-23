@@ -201,20 +201,20 @@ impl Icons {
     pub const ARROW_DOWN: &'static str = "";
     pub const ARROW_LEFT: &'static str = "";
     pub const ARROW_RIGHT: &'static str = "";
+}
 
-    // ASCII fallbacks for terminals without Nerd Fonts
-    pub mod ascii {
-        pub const HOME: &'static str = "[H]";
-        pub const BACK: &'static str = "<-";
-        pub const MENU: &'static str = "=";
-        pub const TERMINAL: &'static str = ">_";
-        pub const FILE: &'static str = "F";
-        pub const FOLDER: &'static str = "D";
-        pub const SETTINGS: &'static str = "*";
-        pub const AI: &'static str = "AI";
-        pub const CHECK: &'static str = "[x]";
-        pub const CROSS: &'static str = "[X]";
-        pub const WARNING: &'static str = "!";
-        pub const ERROR: &'static str = "E";
-    }
+/// ASCII fallbacks for terminals without Nerd Fonts
+pub mod ascii_icons {
+    pub const HOME: &'static str = "[H]";
+    pub const BACK: &'static str = "<-";
+    pub const MENU: &'static str = "=";
+    pub const TERMINAL: &'static str = ">_";
+    pub const FILE: &'static str = "F";
+    pub const FOLDER: &'static str = "D";
+    pub const SETTINGS: &'static str = "*";
+    pub const AI: &'static str = "AI";
+    pub const CHECK: &'static str = "[x]";
+    pub const CROSS: &'static str = "[X]";
+    pub const WARNING: &'static str = "!";
+    pub const ERROR: &'static str = "E";
 }

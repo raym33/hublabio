@@ -4,8 +4,8 @@
 
 use alloc::vec::Vec;
 
-use super::{Ipv4Address, MacAddress, NetError, PacketBuffer};
 use super::ethernet;
+use super::{Ipv4Address, MacAddress, NetError, PacketBuffer};
 
 /// IPv4 header size (without options)
 pub const HEADER_SIZE: usize = 20;
@@ -89,12 +89,8 @@ impl Ipv4Header {
     pub fn update_checksum(&mut self) {
         self.checksum = [0, 0];
 
-        let bytes = unsafe {
-            core::slice::from_raw_parts(
-                self as *const _ as *const u8,
-                HEADER_SIZE,
-            )
-        };
+        let bytes =
+            unsafe { core::slice::from_raw_parts(self as *const _ as *const u8, HEADER_SIZE) };
 
         let sum = calculate_checksum(bytes);
         self.checksum = sum.to_be_bytes();
@@ -102,12 +98,8 @@ impl Ipv4Header {
 
     /// Verify checksum
     pub fn verify_checksum(&self) -> bool {
-        let bytes = unsafe {
-            core::slice::from_raw_parts(
-                self as *const _ as *const u8,
-                HEADER_SIZE,
-            )
-        };
+        let bytes =
+            unsafe { core::slice::from_raw_parts(self as *const _ as *const u8, HEADER_SIZE) };
 
         let mut sum: u32 = 0;
         for i in (0..bytes.len()).step_by(2) {
@@ -128,9 +120,7 @@ impl Ipv4Header {
 
     /// Convert to bytes
     pub fn to_bytes(&self) -> [u8; HEADER_SIZE] {
-        unsafe {
-            core::mem::transmute_copy(self)
-        }
+        unsafe { core::mem::transmute_copy(self) }
     }
 }
 
@@ -160,9 +150,7 @@ pub fn parse(data: &[u8]) -> Result<(Ipv4Header, &[u8]), NetError> {
         return Err(NetError::InvalidPacket);
     }
 
-    let header = unsafe {
-        core::ptr::read_unaligned(data.as_ptr() as *const Ipv4Header)
-    };
+    let header = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const Ipv4Header) };
 
     if header.version() != 4 {
         return Err(NetError::InvalidPacket);
@@ -183,12 +171,7 @@ pub fn parse(data: &[u8]) -> Result<(Ipv4Header, &[u8]), NetError> {
 }
 
 /// Build IPv4 packet
-pub fn build(
-    src: Ipv4Address,
-    dst: Ipv4Address,
-    protocol: u8,
-    payload: &[u8],
-) -> Vec<u8> {
+pub fn build(src: Ipv4Address, dst: Ipv4Address, protocol: u8, payload: &[u8]) -> Vec<u8> {
     let header = Ipv4Header::new(src, dst, protocol, payload.len());
 
     let mut packet = Vec::with_capacity(HEADER_SIZE + payload.len());
@@ -199,18 +182,12 @@ pub fn build(
 }
 
 /// Send an IP packet
-pub fn send(
-    dst: Ipv4Address,
-    protocol: u8,
-    payload: &[u8],
-) -> Result<(), NetError> {
+pub fn send(dst: Ipv4Address, protocol: u8, payload: &[u8]) -> Result<(), NetError> {
     // Find route
-    let (iface_idx, next_hop) = super::find_route(dst)
-        .ok_or(NetError::NoRoute)?;
+    let (iface_idx, next_hop) = super::find_route(dst).ok_or(NetError::NoRoute)?;
 
     // Get interface
-    let iface = super::get_interface(iface_idx)
-        .ok_or(NetError::InterfaceNotFound)?;
+    let iface = super::get_interface(iface_idx).ok_or(NetError::InterfaceNotFound)?;
 
     // Build IP packet
     let packet = build(iface.config.ip_address, dst, protocol, payload);

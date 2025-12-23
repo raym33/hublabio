@@ -5,7 +5,7 @@
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 /// Boot stage identifier
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -189,11 +189,7 @@ fn init_memory(boot_info: &crate::BootInfo) -> InitResult {
     // Validate memory map
     if boot_info.memory_map.entries.is_empty() {
         crate::kprintln!(" FAILED");
-        return Err(BootError::new(
-            BootStage::Memory,
-            "Empty memory map",
-            false,
-        ));
+        return Err(BootError::new(BootStage::Memory, "Empty memory map", false));
     }
 
     // Initialize memory manager
@@ -215,7 +211,9 @@ fn init_memory(boot_info: &crate::BootInfo) -> InitResult {
             ));
         }
 
-        crate::ALLOCATOR.lock().init(heap_start as *mut u8, heap_size);
+        crate::ALLOCATOR
+            .lock()
+            .init(heap_start as *mut u8, heap_size);
     }
     crate::kprintln!(" OK");
 

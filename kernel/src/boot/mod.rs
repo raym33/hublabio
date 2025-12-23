@@ -2,11 +2,11 @@
 //!
 //! Handles early hardware initialization and boot sequence.
 
-use crate::{BootInfo, MemoryMap, MemoryRegion, MemoryKind, FramebufferInfo};
+use crate::{BootInfo, FramebufferInfo, MemoryKind, MemoryMap, MemoryRegion};
 
-pub mod platform;
 pub mod cmdline;
 pub mod init;
+pub mod platform;
 
 /// Boot stages
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -163,7 +163,7 @@ pub fn get_memory_size(platform: Platform) -> usize {
         Platform::RaspberryPi3 => 1024 * 1024 * 1024,     // 1GB
         Platform::RaspberryPiZero2W => 512 * 1024 * 1024, // 512MB
         Platform::QemuVirt => 128 * 1024 * 1024,          // QEMU default
-        _ => 256 * 1024 * 1024,                            // Conservative default
+        _ => 256 * 1024 * 1024,                           // Conservative default
     }
 }
 
@@ -304,6 +304,9 @@ pub fn print_capabilities(caps: &Capabilities) {
     crate::kprintln!("    FPU: {}", if caps.has_fpu { "Yes" } else { "No" });
     crate::kprintln!("    Crypto: {}", if caps.has_crypto { "Yes" } else { "No" });
     crate::kprintln!("    GPU: {}", if caps.has_gpu { "Yes" } else { "No" });
-    crate::kprintln!("    Network: {}", if caps.has_network { "Yes" } else { "No" });
+    crate::kprintln!(
+        "    Network: {}",
+        if caps.has_network { "Yes" } else { "No" }
+    );
     crate::kprintln!("    WiFi: {}", if caps.has_wifi { "Yes" } else { "No" });
 }

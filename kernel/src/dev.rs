@@ -4,10 +4,10 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
-use spin::{Mutex, RwLock};
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU32, Ordering};
+use spin::{Mutex, RwLock};
 
 /// Device type
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,21 +42,21 @@ impl DeviceNumber {
 
 /// Standard major device numbers
 pub mod major {
-    pub const MEM: u16 = 1;      // Memory devices
-    pub const TTY: u16 = 4;      // TTY devices
-    pub const CONSOLE: u16 = 5;  // Console
-    pub const LP: u16 = 6;       // Printer
-    pub const LOOP: u16 = 7;     // Loopback
+    pub const MEM: u16 = 1; // Memory devices
+    pub const TTY: u16 = 4; // TTY devices
+    pub const CONSOLE: u16 = 5; // Console
+    pub const LP: u16 = 6; // Printer
+    pub const LOOP: u16 = 7; // Loopback
     pub const SCSI_DISK: u16 = 8; // SCSI disks
     pub const PTY_MASTER: u16 = 128; // PTY masters
-    pub const PTY_SLAVE: u16 = 136;  // PTY slaves
-    pub const USB: u16 = 180;    // USB devices
-    pub const MISC: u16 = 10;    // Misc devices
-    pub const INPUT: u16 = 13;   // Input devices
-    pub const SOUND: u16 = 14;   // Sound devices
-    pub const FB: u16 = 29;      // Framebuffer
-    pub const MTD: u16 = 90;     // MTD devices
-    pub const MMC: u16 = 179;    // MMC/SD cards
+    pub const PTY_SLAVE: u16 = 136; // PTY slaves
+    pub const USB: u16 = 180; // USB devices
+    pub const MISC: u16 = 10; // Misc devices
+    pub const INPUT: u16 = 13; // Input devices
+    pub const SOUND: u16 = 14; // Sound devices
+    pub const FB: u16 = 29; // Framebuffer
+    pub const MTD: u16 = 90; // MTD devices
+    pub const MMC: u16 = 179; // MMC/SD cards
 }
 
 /// Device operations trait
@@ -151,7 +151,13 @@ pub fn unregister_blkdev(major: u16) {
 }
 
 /// Create device node
-pub fn mknod(path: &str, dev_type: DeviceType, major: u16, minor: u16, mode: u32) -> Result<(), DeviceError> {
+pub fn mknod(
+    path: &str,
+    dev_type: DeviceType,
+    major: u16,
+    minor: u16,
+    mode: u32,
+) -> Result<(), DeviceError> {
     let node = DeviceNode {
         name: String::from(path),
         dev_type,
@@ -167,7 +173,10 @@ pub fn mknod(path: &str, dev_type: DeviceType, major: u16, minor: u16, mode: u32
 
 /// Remove device node
 pub fn unlink(path: &str) -> Result<(), DeviceError> {
-    DEV_NODES.write().remove(path).ok_or(DeviceError::NotFound)?;
+    DEV_NODES
+        .write()
+        .remove(path)
+        .ok_or(DeviceError::NotFound)?;
     Ok(())
 }
 
@@ -193,12 +202,8 @@ pub fn open(path: &str, flags: u32) -> Result<DeviceHandle, DeviceError> {
     let node = get_node(path).ok_or(DeviceError::NotFound)?;
 
     let ops = match node.dev_type {
-        DeviceType::Character => {
-            CHAR_DEVICES.read().get(&node.number.major).cloned()
-        }
-        DeviceType::Block => {
-            BLOCK_DEVICES.read().get(&node.number.major).cloned()
-        }
+        DeviceType::Character => CHAR_DEVICES.read().get(&node.number.major).cloned(),
+        DeviceType::Block => BLOCK_DEVICES.read().get(&node.number.major).cloned(),
     };
 
     let ops = ops.ok_or(DeviceError::NotFound)?;
@@ -382,7 +387,13 @@ pub fn init() {
 
     // Console devices
     let _ = mknod("/dev/tty", DeviceType::Character, major::TTY, 0, 0o666);
-    let _ = mknod("/dev/console", DeviceType::Character, major::CONSOLE, 1, 0o600);
+    let _ = mknod(
+        "/dev/console",
+        DeviceType::Character,
+        major::CONSOLE,
+        1,
+        0o600,
+    );
     let _ = mknod("/dev/tty0", DeviceType::Character, major::TTY, 0, 0o600);
 
     crate::kprintln!("  Device subsystem initialized");

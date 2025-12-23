@@ -38,8 +38,8 @@ impl Framebuffer {
             bpp: info.bpp,
             cursor_x: 0,
             cursor_y: 0,
-            fg_color: 0xFFFFFF,  // White
-            bg_color: 0x000000,  // Black
+            fg_color: 0xFFFFFF, // White
+            bg_color: 0x000000, // Black
         }
     }
 

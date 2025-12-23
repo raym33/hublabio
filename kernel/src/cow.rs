@@ -314,17 +314,17 @@ impl AddressSpace {
         }
 
         // Copy page table base
-        child.pgd.store(self.pgd.load(Ordering::SeqCst), Ordering::SeqCst);
+        child
+            .pgd
+            .store(self.pgd.load(Ordering::SeqCst), Ordering::SeqCst);
 
         // Update counters
-        child.mapped_pages.store(
-            self.mapped_pages.load(Ordering::SeqCst),
-            Ordering::SeqCst
-        );
-        child.shared_pages.store(
-            self.resident_pages.load(Ordering::SeqCst),
-            Ordering::SeqCst
-        );
+        child
+            .mapped_pages
+            .store(self.mapped_pages.load(Ordering::SeqCst), Ordering::SeqCst);
+        child
+            .shared_pages
+            .store(self.resident_pages.load(Ordering::SeqCst), Ordering::SeqCst);
 
         drop(child_vmas);
         drop(parent_vmas);
@@ -403,11 +403,7 @@ impl AddressSpace {
         let old_addr = old_page.pfn << PAGE_SHIFT;
         let new_addr = new_pfn << PAGE_SHIFT;
         unsafe {
-            core::ptr::copy_nonoverlapping(
-                old_addr as *const u8,
-                new_addr as *mut u8,
-                PAGE_SIZE,
-            );
+            core::ptr::copy_nonoverlapping(old_addr as *const u8, new_addr as *mut u8, PAGE_SIZE);
         }
 
         // Create new page with original flags (writable)
@@ -557,8 +553,7 @@ pub fn total_page_count() -> usize {
 // ============================================================================
 
 /// Process address spaces
-static ADDRESS_SPACES: RwLock<BTreeMap<Pid, Arc<AddressSpace>>> =
-    RwLock::new(BTreeMap::new());
+static ADDRESS_SPACES: RwLock<BTreeMap<Pid, Arc<AddressSpace>>> = RwLock::new(BTreeMap::new());
 
 /// Create address space for process
 pub fn create_address_space(pid: Pid) -> Arc<AddressSpace> {

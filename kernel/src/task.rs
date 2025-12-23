@@ -4,16 +4,16 @@
 //! process lifecycle, and wait queue integration.
 
 use alloc::collections::{BTreeMap, VecDeque};
+use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use alloc::string::String;
-use core::sync::atomic::{AtomicU64, AtomicBool, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use spin::{Mutex, RwLock};
 
-use crate::process::{Pid, ProcessState, BlockReason, CpuContext, Process};
-use crate::memory::{PAGE_SIZE, PageFlags, PhysFrame, VirtPage, allocate_frame, deallocate_frame};
 use crate::memory::paging::AddressSpace;
-use crate::signal::{Signal, SignalState, SignalInfo, SignalAction};
+use crate::memory::{allocate_frame, deallocate_frame, PageFlags, PhysFrame, VirtPage, PAGE_SIZE};
+use crate::process::{BlockReason, CpuContext, Pid, Process, ProcessState};
+use crate::signal::{Signal, SignalAction, SignalInfo, SignalState};
 
 /// Task identifier
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -150,12 +150,7 @@ impl Task {
     }
 
     /// Set up task context for user mode execution
-    pub fn setup_user_context(
-        &self,
-        entry_point: usize,
-        stack_pointer: usize,
-        arg0: usize,
-    ) {
+    pub fn setup_user_context(&self, entry_point: usize, stack_pointer: usize, arg0: usize) {
         let mut ctx = self.context.lock();
         *ctx = CpuContext::default();
         ctx.pc = entry_point as u64;
@@ -166,11 +161,7 @@ impl Task {
     }
 
     /// Set up task context for kernel mode execution
-    pub fn setup_kernel_context(
-        &self,
-        entry_point: usize,
-        arg0: usize,
-    ) {
+    pub fn setup_kernel_context(&self, entry_point: usize, arg0: usize) {
         let mut ctx = self.context.lock();
         *ctx = CpuContext::default();
         ctx.pc = entry_point as u64;
@@ -340,23 +331,19 @@ unsafe fn switch_address_space(page_table: u64) {
 /// # Safety
 /// Pointers must be valid
 #[naked]
-unsafe extern "C" fn context_switch_asm(
-    _from: *mut CpuContext,
-    _to: *const CpuContext,
-) {
+unsafe extern "C" fn context_switch_asm(_from: *mut CpuContext, _to: *const CpuContext) {
     core::arch::asm!(
         // Save callee-saved registers to from context
-        "stp x19, x20, [x0, #152]",   // x[19], x[20]
-        "stp x21, x22, [x0, #168]",   // x[21], x[22]
-        "stp x23, x24, [x0, #184]",   // x[23], x[24]
-        "stp x25, x26, [x0, #200]",   // x[25], x[26]
-        "stp x27, x28, [x0, #216]",   // x[27], x[28]
-        "stp x29, x30, [x0, #232]",   // x[29] (fp), x[30] (lr)
+        "stp x19, x20, [x0, #152]", // x[19], x[20]
+        "stp x21, x22, [x0, #168]", // x[21], x[22]
+        "stp x23, x24, [x0, #184]", // x[23], x[24]
+        "stp x25, x26, [x0, #200]", // x[25], x[26]
+        "stp x27, x28, [x0, #216]", // x[27], x[28]
+        "stp x29, x30, [x0, #232]", // x[29] (fp), x[30] (lr)
         "mov x2, sp",
-        "str x2, [x0, #248]",          // sp
+        "str x2, [x0, #248]", // sp
         "adr x2, 1f",
-        "str x2, [x0, #256]",          // pc (return address)
-
+        "str x2, [x0, #256]", // pc (return address)
         // Restore callee-saved registers from to context
         "ldp x19, x20, [x1, #152]",
         "ldp x21, x22, [x1, #168]",
@@ -368,7 +355,6 @@ unsafe extern "C" fn context_switch_asm(
         "mov sp, x2",
         "ldr x2, [x1, #256]",
         "br x2",
-
         "1:",
         "ret",
         options(noreturn)
@@ -385,7 +371,10 @@ pub fn wait_for_child(task_id: TaskId, target: WaitTarget) {
 
     let mut queues = WAIT_QUEUES.lock();
     let queue = queues.entry(parent_pid).or_insert_with(VecDeque::new);
-    queue.push_back(WaitEntry { task_id, waiting_for: target });
+    queue.push_back(WaitEntry {
+        task_id,
+        waiting_for: target,
+    });
 }
 
 /// Notify parent that child has exited
@@ -568,25 +557,19 @@ fn copy_page_tables_cow(parent_root: usize, child_root: usize) {
 }
 
 /// Execute a new program in the current process
-pub fn exec(
-    path: &str,
-    argv: &[&str],
-    envp: &[&str],
-) -> Result<(), i32> {
+pub fn exec(path: &str, argv: &[&str], envp: &[&str]) -> Result<(), i32> {
     let task = current().ok_or(-1)?;
     let process = &task.process;
 
     // Read ELF file
-    let data = crate::vfs::read_file(path)
-        .map_err(|_| -2)?; // ENOENT
+    let data = crate::vfs::read_file(path).map_err(|_| -2)?; // ENOENT
 
     if data.is_empty() {
         return Err(-8); // ENOEXEC
     }
 
     // Load ELF
-    let program = crate::exec::load_elf(&data)
-        .map_err(|_| -8)?; // ENOEXEC
+    let program = crate::exec::load_elf(&data).map_err(|_| -8)?; // ENOEXEC
 
     // Clear existing memory mappings
     {
@@ -607,12 +590,7 @@ pub fn exec(
     load_elf_segments(&data, process)?;
 
     // Set up user stack with arguments
-    let (sp, _argc) = setup_user_stack(
-        process,
-        program.stack_top,
-        argv,
-        envp,
-    )?;
+    let (sp, _argc) = setup_user_stack(process, program.stack_top, argv, envp)?;
 
     // Update process memory info
     {
@@ -633,7 +611,9 @@ pub fn exec(
 
     crate::kinfo!(
         "exec: Process {} executing {} at 0x{:x}",
-        process.pid.0, path, program.entry_point
+        process.pid.0,
+        path,
+        program.entry_point
     );
 
     // Don't return - switch directly to user mode
@@ -644,8 +624,7 @@ pub fn exec(
 
 /// Load ELF segments into process memory
 fn load_elf_segments(data: &[u8], process: &Process) -> Result<(), i32> {
-    let header = crate::exec::parse_elf_header(data)
-        .map_err(|_| -8)?;
+    let header = crate::exec::parse_elf_header(data).map_err(|_| -8)?;
     let phdrs = crate::exec::parse_program_headers(data, &header);
 
     let memory = process.memory.lock();
@@ -683,7 +662,12 @@ fn load_elf_segments(data: &[u8], process: &Process) -> Result<(), i32> {
             let frame = allocate_frame().ok_or(-12)?; // ENOMEM
 
             // Map the page
-            if !map_page(page_table_addr, page_vaddr, frame.start_address(), page_flags) {
+            if !map_page(
+                page_table_addr,
+                page_vaddr,
+                frame.start_address(),
+                page_flags,
+            ) {
                 deallocate_frame(frame);
                 return Err(-12); // ENOMEM
             }
@@ -693,27 +677,16 @@ fn load_elf_segments(data: &[u8], process: &Process) -> Result<(), i32> {
             let file_offset = offset + page_offset_in_segment;
 
             if file_offset < offset + filesz {
-                let copy_size = core::cmp::min(
-                    PAGE_SIZE,
-                    offset + filesz - file_offset,
-                );
+                let copy_size = core::cmp::min(PAGE_SIZE, offset + filesz - file_offset);
 
                 unsafe {
                     let dest = frame.start_address() as *mut u8;
                     let src = &data[file_offset..file_offset + copy_size];
-                    core::ptr::copy_nonoverlapping(
-                        src.as_ptr(),
-                        dest,
-                        copy_size,
-                    );
+                    core::ptr::copy_nonoverlapping(src.as_ptr(), dest, copy_size);
 
                     // Zero remaining part of page
                     if copy_size < PAGE_SIZE {
-                        core::ptr::write_bytes(
-                            dest.add(copy_size),
-                            0,
-                            PAGE_SIZE - copy_size,
-                        );
+                        core::ptr::write_bytes(dest.add(copy_size), 0, PAGE_SIZE - copy_size);
                     }
                 }
             } else {
@@ -726,12 +699,16 @@ fn load_elf_segments(data: &[u8], process: &Process) -> Result<(), i32> {
         }
 
         // Add to memory regions
-        process.memory.lock().regions.push(crate::process::MemoryRegion {
-            start: vaddr,
-            end: vaddr + memsz,
-            flags: crate::process::MemoryFlags::from_bits_truncate(page_flags.bits() as u32),
-            name: String::from("[elf]"),
-        });
+        process
+            .memory
+            .lock()
+            .regions
+            .push(crate::process::MemoryRegion {
+                start: vaddr,
+                end: vaddr + memsz,
+                flags: crate::process::MemoryFlags::from_bits_truncate(page_flags.bits() as u32),
+                name: String::from("[elf]"),
+            });
     }
 
     Ok(())
@@ -879,12 +856,18 @@ fn setup_user_stack(
     }
 
     // Add stack region
-    process.memory.lock().regions.push(crate::process::MemoryRegion {
-        start: stack_base,
-        end: stack_top,
-        flags: crate::process::MemoryFlags::READ | crate::process::MemoryFlags::WRITE | crate::process::MemoryFlags::USER,
-        name: String::from("[stack]"),
-    });
+    process
+        .memory
+        .lock()
+        .regions
+        .push(crate::process::MemoryRegion {
+            start: stack_base,
+            end: stack_top,
+            flags: crate::process::MemoryFlags::READ
+                | crate::process::MemoryFlags::WRITE
+                | crate::process::MemoryFlags::USER,
+            name: String::from("[stack]"),
+        });
 
     // Calculate total size needed for strings
     let mut total_str_size = 0;

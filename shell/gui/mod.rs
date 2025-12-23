@@ -4,21 +4,21 @@
 //! windows, widgets, and touch/mouse input.
 
 pub mod compositor;
-pub mod window;
-pub mod widgets;
-pub mod input;
-pub mod theme;
-pub mod render;
 pub mod font;
+pub mod input;
 pub mod layout;
+pub mod render;
+pub mod theme;
+pub mod widgets;
+pub mod window;
 
 pub use compositor::Compositor;
-pub use window::{Window, WindowId, WindowFlags};
-pub use widgets::Widget;
-pub use input::{InputEvent, MouseButton, TouchPhase, Modifiers};
+pub use font::{char_height, char_width, draw_text, text_width, TextAlign};
+pub use input::{InputEvent, Modifiers, MouseButton, TouchPhase};
+pub use layout::{Alignment, Anchor, Direction, GridLayout, LinearLayout};
 pub use theme::Theme;
-pub use font::{draw_text, text_width, char_width, char_height, TextAlign};
-pub use layout::{LinearLayout, GridLayout, Direction, Alignment, Anchor};
+pub use widgets::Widget;
+pub use window::{Window, WindowFlags, WindowId};
 
 use alloc::sync::Arc;
 use spin::RwLock;
@@ -54,19 +54,26 @@ pub struct Rect {
 
 impl Rect {
     pub const fn new(x: i32, y: i32, width: u32, height: u32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn contains(&self, px: i32, py: i32) -> bool {
-        px >= self.x && px < self.x + self.width as i32 &&
-        py >= self.y && py < self.y + self.height as i32
+        px >= self.x
+            && px < self.x + self.width as i32
+            && py >= self.y
+            && py < self.y + self.height as i32
     }
 
     pub fn intersects(&self, other: &Rect) -> bool {
-        !(self.x + self.width as i32 <= other.x ||
-          other.x + other.width as i32 <= self.x ||
-          self.y + self.height as i32 <= other.y ||
-          other.y + other.height as i32 <= self.y)
+        !(self.x + self.width as i32 <= other.x
+            || other.x + other.width as i32 <= self.x
+            || self.y + self.height as i32 <= other.y
+            || other.y + other.height as i32 <= self.y)
     }
 
     pub fn intersection(&self, other: &Rect) -> Option<Rect> {
@@ -151,10 +158,7 @@ impl Color {
     }
 
     pub const fn to_argb(&self) -> u32 {
-        ((self.a as u32) << 24) |
-        ((self.r as u32) << 16) |
-        ((self.g as u32) << 8) |
-        (self.b as u32)
+        ((self.a as u32) << 24) | ((self.r as u32) << 16) | ((self.g as u32) << 8) | (self.b as u32)
     }
 
     pub fn blend(&self, other: &Color) -> Color {

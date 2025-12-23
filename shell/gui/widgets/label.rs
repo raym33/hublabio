@@ -2,9 +2,9 @@
 
 use alloc::string::String;
 
-use crate::gui::{Rect, Color};
-use crate::gui::theme::Theme;
 use super::Widget;
+use crate::gui::theme::Theme;
+use crate::gui::{Color, Rect};
 
 /// Text alignment
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -12,8 +12,7 @@ pub mod scroll;
 
 // Re-export main types
 pub use app::{
-    TuiApp, Theme, Screen, AppDef, AppCategory, SystemStatus,
-    ChatMessage, ChatRole, APPS, ansi,
+    ansi, AppCategory, AppDef, ChatMessage, ChatRole, Screen, SystemStatus, Theme, TuiApp, APPS,
 };
 pub use editor::LineEditor;
 pub use scroll::{ScrollBuffer, ScrollList, Scrollbar};
@@ -101,19 +100,17 @@ pub fn parse_input(bytes: &[u8]) -> InputEvent {
                     b'5' if bytes.len() >= 4 && bytes[3] == b'~' => return InputEvent::PageUp,
                     b'6' if bytes.len() >= 4 && bytes[3] == b'~' => return InputEvent::PageDown,
                     // Function keys
-                    b'1' if bytes.len() >= 4 => {
-                        match bytes[3] {
-                            b'1' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(1),
-                            b'2' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(2),
-                            b'3' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(3),
-                            b'4' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(4),
-                            b'5' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(5),
-                            b'7' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(6),
-                            b'8' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(7),
-                            b'9' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(8),
-                            _ => {}
-                        }
-                    }
+                    b'1' if bytes.len() >= 4 => match bytes[3] {
+                        b'1' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(1),
+                        b'2' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(2),
+                        b'3' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(3),
+                        b'4' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(4),
+                        b'5' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(5),
+                        b'7' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(6),
+                        b'8' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(7),
+                        b'9' if bytes.len() >= 5 && bytes[4] == b'~' => return InputEvent::F(8),
+                        _ => {}
+                    },
                     _ => {}
                 }
             }
@@ -321,8 +318,20 @@ impl TuiShell {
     fn get_completions(&self) -> Vec<String> {
         let input = self.editor.content();
         let commands = [
-            "help", "exit", "clear", "ls", "cd", "cat", "pwd",
-            "ps", "top", "ai", "pkg", "gpio", "wifi", "bluetooth",
+            "help",
+            "exit",
+            "clear",
+            "ls",
+            "cd",
+            "cat",
+            "pwd",
+            "ps",
+            "top",
+            "ai",
+            "pkg",
+            "gpio",
+            "wifi",
+            "bluetooth",
         ];
 
         commands
@@ -403,7 +412,9 @@ pub fn run_shell() -> ! {
 
     // Welcome message
     shell.output.push(String::from("HubLab IO Shell v0.1.0"));
-    shell.output.push(String::from("Type 'help' for available commands."));
+    shell
+        .output
+        .push(String::from("Type 'help' for available commands."));
     shell.output.push(String::new());
 
     loop {

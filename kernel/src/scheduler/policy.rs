@@ -2,7 +2,7 @@
 //!
 //! Different scheduling algorithms and their implementations.
 
-use super::{Priority, SchedulingPolicy, SchedInfo, Pid};
+use super::{Pid, Priority, SchedInfo, SchedulingPolicy};
 use alloc::vec::Vec;
 
 /// Completely Fair Scheduler (CFS) inspired policy
@@ -57,10 +57,9 @@ impl CfsPolicy {
 
     /// Pick the process with lowest vruntime
     pub fn pick_next(&self, candidates: &[Pid]) -> Option<Pid> {
-        candidates.iter()
-            .filter_map(|pid| {
-                self.vruntime.get(pid).map(|vr| (*pid, *vr))
-            })
+        candidates
+            .iter()
+            .filter_map(|pid| self.vruntime.get(pid).map(|vr| (*pid, *vr)))
             .min_by_key(|(_, vr)| *vr)
             .map(|(pid, _)| pid)
     }
@@ -166,10 +165,9 @@ impl AiPolicy {
 
     /// Shortest Job First based on AI predictions
     pub fn pick_next(&self, candidates: &[Pid]) -> Option<Pid> {
-        candidates.iter()
-            .filter_map(|pid| {
-                self.predictions.get(pid).map(|rt| (*pid, *rt))
-            })
+        candidates
+            .iter()
+            .filter_map(|pid| self.predictions.get(pid).map(|rt| (*pid, *rt)))
             .min_by_key(|(_, rt)| *rt)
             .map(|(pid, _)| pid)
     }
@@ -205,9 +203,7 @@ pub struct BatchPolicy {
 
 impl BatchPolicy {
     pub fn new() -> Self {
-        Self {
-            queue: Vec::new(),
-        }
+        Self { queue: Vec::new() }
     }
 
     pub fn add(&mut self, pid: Pid, priority: Priority) {

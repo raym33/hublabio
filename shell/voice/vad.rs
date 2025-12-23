@@ -38,7 +38,7 @@ impl VoiceActivityDetector {
 
         Self {
             threshold,
-            frame_size: 160,  // 10ms at 16kHz
+            frame_size: 160, // 10ms at 16kHz
             smoothing: 0.95,
             smoothed_energy: 0.0,
             speech_start_delay: 3,
@@ -67,8 +67,8 @@ impl VoiceActivityDetector {
         let energy = calculate_energy(samples);
 
         // Update smoothed energy
-        self.smoothed_energy = self.smoothing * self.smoothed_energy +
-                               (1.0 - self.smoothing) * energy;
+        self.smoothed_energy =
+            self.smoothing * self.smoothed_energy + (1.0 - self.smoothing) * energy;
 
         // Update history for adaptive threshold
         if self.energy_history.len() >= self.history_size {
@@ -167,9 +167,7 @@ fn calculate_energy(samples: &[i16]) -> f32 {
         return 0.0;
     }
 
-    let sum_squares: f64 = samples.iter()
-        .map(|&s| (s as f64) * (s as f64))
-        .sum();
+    let sum_squares: f64 = samples.iter().map(|&s| (s as f64) * (s as f64)).sum();
 
     (sum_squares / samples.len() as f64).sqrt() as f32
 }
@@ -180,7 +178,8 @@ pub fn zero_crossing_rate(samples: &[i16]) -> f32 {
         return 0.0;
     }
 
-    let crossings = samples.windows(2)
+    let crossings = samples
+        .windows(2)
         .filter(|w| (w[0] >= 0) != (w[1] >= 0))
         .count();
 
@@ -200,8 +199,8 @@ impl NoiseGate {
     pub fn new(threshold: f32, sample_rate: u32) -> Self {
         Self {
             threshold,
-            attack_time: 0.001,   // 1ms attack
-            release_time: 0.050,  // 50ms release
+            attack_time: 0.001,  // 1ms attack
+            release_time: 0.050, // 50ms release
             current_gain: 0.0,
             sample_rate,
         }
@@ -250,9 +249,9 @@ impl VoiceActivityBuffer {
             vad: VoiceActivityDetector::new(sensitivity),
             buffer: Vec::new(),
             pre_speech_buffer: Vec::new(),
-            pre_speech_frames: 3,  // Keep 3 frames before speech
-            max_duration_samples: (sample_rate * 30) as usize,  // 30 seconds max
-            min_duration_samples: (sample_rate / 4) as usize,   // 250ms min
+            pre_speech_frames: 3, // Keep 3 frames before speech
+            max_duration_samples: (sample_rate * 30) as usize, // 30 seconds max
+            min_duration_samples: (sample_rate / 4) as usize, // 250ms min
             is_collecting: false,
         }
     }

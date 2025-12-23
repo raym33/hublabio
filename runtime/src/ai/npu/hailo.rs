@@ -3,14 +3,14 @@
 //! Driver interface for Hailo-8L (Raspberry Pi AI Kit) and Hailo-8.
 //! Provides hardware-accelerated inference for compiled Hailo models (.hef).
 
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::vec;
-use alloc::format;
 use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use super::{NpuInfo, NpuType, NpuError, NpuCapabilities, NpuDtype, ModelFormat};
+use super::{ModelFormat, NpuCapabilities, NpuDtype, NpuError, NpuInfo, NpuType};
 
 /// Hailo device path
 pub const HAILO_DEVICE_PATH: &str = "/dev/hailo0";
@@ -145,12 +145,16 @@ impl HailoContext {
     /// Load model into context
     pub fn load_model(&mut self, model: HailoModel) -> Result<(), NpuError> {
         // Allocate input buffers
-        self.input_buffers = model.inputs.iter()
+        self.input_buffers = model
+            .inputs
+            .iter()
             .map(|t| vec![0u8; t.buffer_size * self.batch_size])
             .collect();
 
         // Allocate output buffers
-        self.output_buffers = model.outputs.iter()
+        self.output_buffers = model
+            .outputs
+            .iter()
             .map(|t| vec![0u8; t.buffer_size * self.batch_size])
             .collect();
 
@@ -161,12 +165,16 @@ impl HailoContext {
     /// Set input data
     pub fn set_input(&mut self, index: usize, data: &[u8]) -> Result<(), NpuError> {
         if index >= self.input_buffers.len() {
-            return Err(NpuError::InferenceError(String::from("Invalid input index")));
+            return Err(NpuError::InferenceError(String::from(
+                "Invalid input index",
+            )));
         }
 
         let buffer = &mut self.input_buffers[index];
         if data.len() > buffer.len() {
-            return Err(NpuError::InferenceError(String::from("Input data too large")));
+            return Err(NpuError::InferenceError(String::from(
+                "Input data too large",
+            )));
         }
 
         buffer[..data.len()].copy_from_slice(data);
@@ -175,7 +183,8 @@ impl HailoContext {
 
     /// Get output data
     pub fn get_output(&self, index: usize) -> Result<&[u8], NpuError> {
-        self.output_buffers.get(index)
+        self.output_buffers
+            .get(index)
             .map(|v| v.as_slice())
             .ok_or_else(|| NpuError::InferenceError(String::from("Invalid output index")))
     }
@@ -206,7 +215,7 @@ impl HailoDevice {
         let info = NpuInfo {
             device_type: NpuType::Hailo8L,
             name: String::from("Hailo-8L"),
-            tops: 13.0, // 13 TOPS for Hailo-8L
+            tops: 13.0,                     // 13 TOPS for Hailo-8L
             memory: 2 * 1024 * 1024 * 1024, // 2GB
             driver_version: String::from("4.17.0"),
             firmware_version: String::from("4.17.0"),
@@ -265,7 +274,9 @@ impl HailoDevice {
 
     /// Run inference
     pub fn infer(&mut self, inputs: &[&[u8]]) -> Result<Vec<Vec<u8>>, NpuError> {
-        let ctx = self.context.as_mut()
+        let ctx = self
+            .context
+            .as_mut()
             .ok_or_else(|| NpuError::InferenceError(String::from("No model loaded")))?;
 
         // Set inputs
@@ -289,7 +300,11 @@ impl HailoDevice {
     }
 
     /// Run async inference
-    pub fn infer_async(&mut self, inputs: &[&[u8]], callback: impl FnOnce(Result<Vec<Vec<u8>>, NpuError>)) {
+    pub fn infer_async(
+        &mut self,
+        inputs: &[&[u8]],
+        callback: impl FnOnce(Result<Vec<Vec<u8>>, NpuError>),
+    ) {
         // TODO: Implement async inference with callback
         let result = self.infer(inputs);
         callback(result);
@@ -378,17 +393,19 @@ pub fn postprocess_classification(
     let mut results = Vec::new();
 
     // Interpret output as float32 logits
-    let floats: Vec<f32> = output.chunks(4)
+    let floats: Vec<f32> = output
+        .chunks(4)
         .take(num_classes)
-        .map(|chunk| {
-            f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])
-        })
+        .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
         .collect();
 
     // Apply softmax
     let max_val = floats.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let exp_sum: f32 = floats.iter().map(|&x| (x - max_val).exp()).sum();
-    let softmax: Vec<f32> = floats.iter().map(|&x| (x - max_val).exp() / exp_sum).collect();
+    let softmax: Vec<f32> = floats
+        .iter()
+        .map(|&x| (x - max_val).exp() / exp_sum)
+        .collect();
 
     // Get top-k
     let mut indexed: Vec<(usize, f32)> = softmax.into_iter().enumerate().collect();

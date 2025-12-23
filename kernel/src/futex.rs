@@ -146,15 +146,15 @@ pub enum FutexError {
 impl FutexError {
     pub fn to_errno(&self) -> i32 {
         match self {
-            FutexError::WouldBlock => -11,  // EAGAIN
-            FutexError::TimedOut => -110,   // ETIMEDOUT
-            FutexError::Invalid => -22,      // EINVAL
-            FutexError::Interrupted => -4,   // EINTR
-            FutexError::Fault => -14,        // EFAULT
-            FutexError::Deadlock => -35,     // EDEADLK
-            FutexError::OwnerDied => -130,   // EOWNERDEAD
-            FutexError::NotOwner => -1,      // EPERM
-            FutexError::Again => -11,        // EAGAIN
+            FutexError::WouldBlock => -11, // EAGAIN
+            FutexError::TimedOut => -110,  // ETIMEDOUT
+            FutexError::Invalid => -22,    // EINVAL
+            FutexError::Interrupted => -4, // EINTR
+            FutexError::Fault => -14,      // EFAULT
+            FutexError::Deadlock => -35,   // EDEADLK
+            FutexError::OwnerDied => -130, // EOWNERDEAD
+            FutexError::NotOwner => -1,    // EPERM
+            FutexError::Again => -11,      // EAGAIN
         }
     }
 }
@@ -207,8 +207,7 @@ fn safe_read_user_atomic(address: usize) -> Result<u32, FutexError> {
     validate_user_address(address, core::mem::size_of::<u32>())?;
 
     // Now safe to dereference
-    let atomic = unsafe { (address as *const AtomicU32).as_ref() }
-        .ok_or(FutexError::Fault)?;
+    let atomic = unsafe { (address as *const AtomicU32).as_ref() }.ok_or(FutexError::Fault)?;
 
     Ok(atomic.load(Ordering::SeqCst))
 }
@@ -453,15 +452,14 @@ pub fn futex_wake_op(
     let cmp_arg = (op & 0xFFF) as u32;
 
     // Perform atomic operation on addr2 (already validated)
-    let atomic = unsafe { (addr2 as *const AtomicU32).as_ref() }
-        .ok_or(FutexError::Fault)?;
+    let atomic = unsafe { (addr2 as *const AtomicU32).as_ref() }.ok_or(FutexError::Fault)?;
 
     let old_val = match op_type {
-        0 => atomic.fetch_add(op_arg as u32, Ordering::SeqCst),  // FUTEX_OP_SET
-        1 => atomic.fetch_add(op_arg as u32, Ordering::SeqCst),  // FUTEX_OP_ADD
-        2 => atomic.fetch_or(op_arg as u32, Ordering::SeqCst),   // FUTEX_OP_OR
+        0 => atomic.fetch_add(op_arg as u32, Ordering::SeqCst), // FUTEX_OP_SET
+        1 => atomic.fetch_add(op_arg as u32, Ordering::SeqCst), // FUTEX_OP_ADD
+        2 => atomic.fetch_or(op_arg as u32, Ordering::SeqCst),  // FUTEX_OP_OR
         3 => atomic.fetch_and(!op_arg as u32, Ordering::SeqCst), // FUTEX_OP_ANDN
-        4 => atomic.fetch_xor(op_arg as u32, Ordering::SeqCst),  // FUTEX_OP_XOR
+        4 => atomic.fetch_xor(op_arg as u32, Ordering::SeqCst), // FUTEX_OP_XOR
         _ => return Err(FutexError::Invalid),
     };
 
@@ -470,12 +468,12 @@ pub fn futex_wake_op(
 
     // Compare and conditionally wake on addr2
     let should_wake2 = match cmp_type {
-        0 => old_val == cmp_arg,  // FUTEX_OP_CMP_EQ
-        1 => old_val != cmp_arg,  // FUTEX_OP_CMP_NE
-        2 => old_val < cmp_arg,   // FUTEX_OP_CMP_LT
-        3 => old_val <= cmp_arg,  // FUTEX_OP_CMP_LE
-        4 => old_val > cmp_arg,   // FUTEX_OP_CMP_GT
-        5 => old_val >= cmp_arg,  // FUTEX_OP_CMP_GE
+        0 => old_val == cmp_arg, // FUTEX_OP_CMP_EQ
+        1 => old_val != cmp_arg, // FUTEX_OP_CMP_NE
+        2 => old_val < cmp_arg,  // FUTEX_OP_CMP_LT
+        3 => old_val <= cmp_arg, // FUTEX_OP_CMP_LE
+        4 => old_val > cmp_arg,  // FUTEX_OP_CMP_GT
+        5 => old_val >= cmp_arg, // FUTEX_OP_CMP_GE
         _ => false,
     };
 
@@ -561,12 +559,12 @@ pub fn futex_lock_pi(
                 }
                 Some(owner) => {
                     // Add to waiters with priority inheritance
-                    let priority = crate::process::get(pid)
-                        .map(|p| p.nice)
-                        .unwrap_or(0);
+                    let priority = crate::process::get(pid).map(|p| p.nice).unwrap_or(0);
 
                     // Insert sorted by priority
-                    let pos = pi.waiters.iter()
+                    let pos = pi
+                        .waiters
+                        .iter()
                         .position(|(_, p)| *p > priority)
                         .unwrap_or(pi.waiters.len());
                     pi.waiters.insert(pos, (pid, priority));
@@ -635,8 +633,7 @@ pub fn futex_unlock_pi(address: usize, private: bool) -> Result<(), FutexError> 
         pi.owner = Some(new_owner);
 
         // Update userspace word
-        let atomic = unsafe { (address as *const AtomicU32).as_ref() }
-            .ok_or(FutexError::Fault)?;
+        let atomic = unsafe { (address as *const AtomicU32).as_ref() }.ok_or(FutexError::Fault)?;
         atomic.store(new_owner.0 as u32, Ordering::SeqCst);
 
         // Wake new owner
@@ -645,8 +642,7 @@ pub fn futex_unlock_pi(address: usize, private: bool) -> Result<(), FutexError> 
         pi.owner = None;
 
         // Update userspace word
-        let atomic = unsafe { (address as *const AtomicU32).as_ref() }
-            .ok_or(FutexError::Fault)?;
+        let atomic = unsafe { (address as *const AtomicU32).as_ref() }.ok_or(FutexError::Fault)?;
         atomic.store(0, Ordering::SeqCst);
 
         table.remove(&key);
@@ -780,41 +776,24 @@ pub fn sys_futex(
 
     let result = match cmd {
         ops::FUTEX_WAIT => {
-            futex_wait(uaddr, val, timeout_ns, ops::FUTEX_BITSET_MATCH_ANY, private)
-                .map(|_| 0)
+            futex_wait(uaddr, val, timeout_ns, ops::FUTEX_BITSET_MATCH_ANY, private).map(|_| 0)
         }
         ops::FUTEX_WAKE => {
-            futex_wake(uaddr, val, ops::FUTEX_BITSET_MATCH_ANY, private)
-                .map(|n| n as i32)
+            futex_wake(uaddr, val, ops::FUTEX_BITSET_MATCH_ANY, private).map(|n| n as i32)
         }
         ops::FUTEX_REQUEUE => {
-            futex_requeue(uaddr, uaddr2, val, timeout as u32, None, private)
-                .map(|n| n as i32)
+            futex_requeue(uaddr, uaddr2, val, timeout as u32, None, private).map(|n| n as i32)
         }
         ops::FUTEX_CMP_REQUEUE => {
-            futex_requeue(uaddr, uaddr2, val, timeout as u32, Some(val3), private)
-                .map(|n| n as i32)
+            futex_requeue(uaddr, uaddr2, val, timeout as u32, Some(val3), private).map(|n| n as i32)
         }
         ops::FUTEX_WAKE_OP => {
-            futex_wake_op(uaddr, uaddr2, val, timeout as u32, val3, private)
-                .map(|n| n as i32)
+            futex_wake_op(uaddr, uaddr2, val, timeout as u32, val3, private).map(|n| n as i32)
         }
-        ops::FUTEX_WAIT_BITSET => {
-            futex_wait(uaddr, val, timeout_ns, val3, private)
-                .map(|_| 0)
-        }
-        ops::FUTEX_WAKE_BITSET => {
-            futex_wake(uaddr, val, val3, private)
-                .map(|n| n as i32)
-        }
-        ops::FUTEX_LOCK_PI => {
-            futex_lock_pi(uaddr, timeout_ns, private)
-                .map(|_| 0)
-        }
-        ops::FUTEX_UNLOCK_PI => {
-            futex_unlock_pi(uaddr, private)
-                .map(|_| 0)
-        }
+        ops::FUTEX_WAIT_BITSET => futex_wait(uaddr, val, timeout_ns, val3, private).map(|_| 0),
+        ops::FUTEX_WAKE_BITSET => futex_wake(uaddr, val, val3, private).map(|n| n as i32),
+        ops::FUTEX_LOCK_PI => futex_lock_pi(uaddr, timeout_ns, private).map(|_| 0),
+        ops::FUTEX_UNLOCK_PI => futex_unlock_pi(uaddr, private).map(|_| 0),
         _ => Err(FutexError::Invalid),
     };
 

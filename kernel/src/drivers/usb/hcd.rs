@@ -2,11 +2,11 @@
 //!
 //! Supports XHCI (USB 3.0), DWCI (Raspberry Pi), and generic controllers.
 
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use spin::Mutex;
 
-use super::{UsbSpeed, UsbError, SetupPacket, UsbDevice};
+use super::{SetupPacket, UsbDevice, UsbError, UsbSpeed};
 
 /// Host controller types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,8 +149,8 @@ pub struct Dwc2Controller {
 
 impl Dwc2Controller {
     /// DWC2 base addresses for different platforms
-    pub const BCM2837_BASE: usize = 0x3F980000;  // Pi 3
-    pub const BCM2711_BASE: usize = 0xFE980000;  // Pi 4
+    pub const BCM2837_BASE: usize = 0x3F980000; // Pi 3
+    pub const BCM2711_BASE: usize = 0xFE980000; // Pi 4
     pub const BCM2712_BASE: usize = 0x1000480000; // Pi 5
 
     /// DWC2 registers
@@ -219,16 +219,16 @@ impl HostController for Dwc2Controller {
 
         // Configure PHY
         let mut gusbcfg = self.read_reg(Self::GUSBCFG);
-        gusbcfg |= 1 << 6;  // PHY interface (internal)
+        gusbcfg |= 1 << 6; // PHY interface (internal)
         self.write_reg(Self::GUSBCFG, gusbcfg);
 
         // Configure AHB
-        let gahbcfg = 1 | (1 << 5);  // Enable DMA, burst length 4
+        let gahbcfg = 1 | (1 << 5); // Enable DMA, burst length 4
         self.write_reg(Self::GAHBCFG, gahbcfg);
 
         // Host mode
         gusbcfg = self.read_reg(Self::GUSBCFG);
-        gusbcfg |= 1 << 29;  // Force host mode
+        gusbcfg |= 1 << 29; // Force host mode
         self.write_reg(Self::GUSBCFG, gusbcfg);
 
         // Wait for host mode
@@ -237,7 +237,7 @@ impl HostController for Dwc2Controller {
         }
 
         // Configure host
-        self.write_reg(Self::HCFG, 1);  // FS/LS PHY clock
+        self.write_reg(Self::HCFG, 1); // FS/LS PHY clock
 
         self.initialized = true;
         crate::kinfo!("DWC2: Controller initialized");
@@ -303,8 +303,8 @@ impl HostController for Dwc2Controller {
         let mut hprt = self.read_reg(Self::HPRT);
 
         // Start reset
-        hprt |= 1 << 8;  // Port reset
-        hprt &= !(1 << 2);  // Clear enable
+        hprt |= 1 << 8; // Port reset
+        hprt &= !(1 << 2); // Clear enable
         self.write_reg(Self::HPRT, hprt);
 
         // Wait 50ms
@@ -331,7 +331,7 @@ impl HostController for Dwc2Controller {
         }
 
         let mut hprt = self.read_reg(Self::HPRT);
-        hprt |= 1 << 2;  // Port enable
+        hprt |= 1 << 2; // Port enable
         self.write_reg(Self::HPRT, hprt);
 
         Ok(())
@@ -343,7 +343,7 @@ impl HostController for Dwc2Controller {
         }
 
         let mut hprt = self.read_reg(Self::HPRT);
-        hprt &= !(1 << 2);  // Port disable
+        hprt &= !(1 << 2); // Port disable
         self.write_reg(Self::HPRT, hprt);
 
         Ok(())
@@ -450,7 +450,7 @@ impl HostController for XhciController {
 
         // Stop controller
         let mut usbcmd = self.read_op_reg(0);
-        usbcmd &= !1;  // Clear Run/Stop
+        usbcmd &= !1; // Clear Run/Stop
         self.write_op_reg(0, usbcmd);
 
         // Wait for halt
@@ -460,7 +460,7 @@ impl HostController for XhciController {
 
         // Reset controller
         usbcmd = self.read_op_reg(0);
-        usbcmd |= 1 << 1;  // HC Reset
+        usbcmd |= 1 << 1; // HC Reset
         self.write_op_reg(0, usbcmd);
 
         while self.read_op_reg(0) & (1 << 1) != 0 {
@@ -487,14 +487,14 @@ impl HostController for XhciController {
 
     fn start(&mut self) -> Result<(), UsbError> {
         let mut usbcmd = self.read_op_reg(0);
-        usbcmd |= 1;  // Run
+        usbcmd |= 1; // Run
         self.write_op_reg(0, usbcmd);
         Ok(())
     }
 
     fn stop(&mut self) -> Result<(), UsbError> {
         let mut usbcmd = self.read_op_reg(0);
-        usbcmd &= !1;  // Stop
+        usbcmd &= !1; // Stop
         self.write_op_reg(0, usbcmd);
         Ok(())
     }
@@ -540,7 +540,7 @@ impl HostController for XhciController {
 
         // Issue port reset
         let mut portsc = self.read_op_reg(reg_offset);
-        portsc |= 1 << 4;  // Port Reset
+        portsc |= 1 << 4; // Port Reset
         self.write_op_reg(reg_offset, portsc);
 
         // Wait for reset complete
@@ -567,7 +567,7 @@ impl HostController for XhciController {
 
         let reg_offset = 0x400 + (port as usize * 0x10);
         let mut portsc = self.read_op_reg(reg_offset);
-        portsc |= 1 << 1;  // Disable
+        portsc |= 1 << 1; // Disable
         self.write_op_reg(reg_offset, portsc);
 
         Ok(())

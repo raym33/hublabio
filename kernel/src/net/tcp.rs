@@ -7,8 +7,8 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU32, Ordering};
 use spin::Mutex;
 
-use super::{Ipv4Address, NetError};
 use super::ip::{self, Ipv4Header};
+use super::{Ipv4Address, NetError};
 
 /// TCP header size (without options)
 pub const HEADER_SIZE: usize = 20;
@@ -132,22 +132,22 @@ struct TcpConnection {
     state: TcpState,
     local: SocketAddr,
     remote: SocketAddr,
-    send_next: u32,      // Next sequence number to send
-    send_unack: u32,     // Oldest unacknowledged sequence
-    recv_next: u32,      // Next expected sequence number
-    recv_window: u16,    // Receive window size
-    send_window: u16,    // Send window size
+    send_next: u32,   // Next sequence number to send
+    send_unack: u32,  // Oldest unacknowledged sequence
+    recv_next: u32,   // Next expected sequence number
+    recv_window: u16, // Receive window size
+    send_window: u16, // Send window size
     send_buffer: VecDeque<u8>,
     recv_buffer: VecDeque<u8>,
     // Retransmission
-    rto: u64,            // Retransmission timeout (ms)
-    srtt: u64,           // Smoothed RTT
-    rttvar: u64,         // RTT variance
-    retries: u32,        // Retransmission count
-    last_sent: u64,      // Time of last send
+    rto: u64,       // Retransmission timeout (ms)
+    srtt: u64,      // Smoothed RTT
+    rttvar: u64,    // RTT variance
+    retries: u32,   // Retransmission count
+    last_sent: u64, // Time of last send
     // Congestion control
-    cwnd: u32,           // Congestion window
-    ssthresh: u32,       // Slow start threshold
+    cwnd: u32,     // Congestion window
+    ssthresh: u32, // Slow start threshold
     // Statistics
     bytes_sent: u64,
     bytes_received: u64,
@@ -269,8 +269,7 @@ fn generate_isn() -> u32 {
 }
 
 /// Active TCP connections
-static CONNECTIONS: Mutex<BTreeMap<ConnectionKey, TcpConnection>> =
-    Mutex::new(BTreeMap::new());
+static CONNECTIONS: Mutex<BTreeMap<ConnectionKey, TcpConnection>> = Mutex::new(BTreeMap::new());
 
 /// Listening sockets
 static LISTENERS: Mutex<BTreeMap<SocketAddr, VecDeque<ConnectionKey>>> =
@@ -289,11 +288,7 @@ fn allocate_port() -> u16 {
 }
 
 /// Calculate TCP checksum
-fn calculate_checksum(
-    src_ip: Ipv4Address,
-    dst_ip: Ipv4Address,
-    tcp_data: &[u8],
-) -> u16 {
+fn calculate_checksum(src_ip: Ipv4Address, dst_ip: Ipv4Address, tcp_data: &[u8]) -> u16 {
     let mut sum: u32 = 0;
 
     // Pseudo-header
@@ -349,12 +344,8 @@ fn send_segment(
     header.set_window(65535);
 
     // Build segment
-    let header_bytes = unsafe {
-        core::slice::from_raw_parts(
-            &header as *const _ as *const u8,
-            HEADER_SIZE,
-        )
-    };
+    let header_bytes =
+        unsafe { core::slice::from_raw_parts(&header as *const _ as *const u8, HEADER_SIZE) };
 
     let mut segment = Vec::with_capacity(HEADER_SIZE + payload.len());
     segment.extend_from_slice(header_bytes);
@@ -382,11 +373,9 @@ pub fn connect(remote: SocketAddr) -> Result<ConnectionKey, NetError> {
     let local_port = allocate_port();
 
     // Get local IP from routing
-    let (iface_idx, _) = super::find_route(remote.ip)
-        .ok_or(NetError::NoRoute)?;
+    let (iface_idx, _) = super::find_route(remote.ip).ok_or(NetError::NoRoute)?;
 
-    let iface = super::get_interface(iface_idx)
-        .ok_or(NetError::InterfaceNotFound)?;
+    let iface = super::get_interface(iface_idx).ok_or(NetError::InterfaceNotFound)?;
 
     let local = SocketAddr::new(iface.config.ip_address, local_port);
     let key = ConnectionKey { local, remote };
@@ -476,9 +465,7 @@ pub fn receive(ip_header: &Ipv4Header, data: &[u8]) -> Result<(), NetError> {
         return Err(NetError::InvalidPacket);
     }
 
-    let header = unsafe {
-        core::ptr::read_unaligned(data.as_ptr() as *const TcpHeader)
-    };
+    let header = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const TcpHeader) };
 
     let remote = SocketAddr::new(ip_header.source(), header.source_port());
     let local = SocketAddr::new(ip_header.destination(), header.dest_port());
@@ -493,8 +480,10 @@ pub fn receive(ip_header: &Ipv4Header, data: &[u8]) -> Result<(), NetError> {
 
     crate::kdebug!(
         "TCP: {}:{} -> {}:{} flags={:02X} seq={} ack={} len={}",
-        remote.ip, remote.port,
-        local.ip, local.port,
+        remote.ip,
+        remote.port,
+        local.ip,
+        local.port,
         header.flags(),
         header.sequence(),
         header.acknowledgment(),
@@ -535,7 +524,14 @@ pub fn receive(ip_header: &Ipv4Header, data: &[u8]) -> Result<(), NetError> {
             }
         } else {
             // Send RST
-            send_segment(local, remote, 0, header.sequence() + 1, flags::RST | flags::ACK, &[])?;
+            send_segment(
+                local,
+                remote,
+                0,
+                header.sequence() + 1,
+                flags::RST | flags::ACK,
+                &[],
+            )?;
         }
     }
 
@@ -558,15 +554,30 @@ fn process_segment(
                 conn.state = TcpState::Established;
 
                 // Send ACK
-                send_segment(conn.local, conn.remote, conn.send_next, conn.recv_next, flags::ACK, &[])?;
-                crate::kinfo!("TCP: Connection established to {}:{}", conn.remote.ip, conn.remote.port);
+                send_segment(
+                    conn.local,
+                    conn.remote,
+                    conn.send_next,
+                    conn.recv_next,
+                    flags::ACK,
+                    &[],
+                )?;
+                crate::kinfo!(
+                    "TCP: Connection established to {}:{}",
+                    conn.remote.ip,
+                    conn.remote.port
+                );
             }
         }
         TcpState::SynReceived => {
             if flags & flags::ACK != 0 {
                 conn.send_unack = header.acknowledgment();
                 conn.state = TcpState::Established;
-                crate::kinfo!("TCP: Connection established from {}:{}", conn.remote.ip, conn.remote.port);
+                crate::kinfo!(
+                    "TCP: Connection established from {}:{}",
+                    conn.remote.ip,
+                    conn.remote.port
+                );
             }
         }
         TcpState::Established => {
@@ -578,7 +589,14 @@ fn process_segment(
                 conn.recv_next += payload.len() as u32;
 
                 // Send ACK
-                send_segment(conn.local, conn.remote, conn.send_next, conn.recv_next, flags::ACK, &[])?;
+                send_segment(
+                    conn.local,
+                    conn.remote,
+                    conn.send_next,
+                    conn.recv_next,
+                    flags::ACK,
+                    &[],
+                )?;
             }
 
             // Handle ACK
@@ -590,7 +608,14 @@ fn process_segment(
             if flags & flags::FIN != 0 {
                 conn.recv_next += 1;
                 conn.state = TcpState::CloseWait;
-                send_segment(conn.local, conn.remote, conn.send_next, conn.recv_next, flags::ACK, &[])?;
+                send_segment(
+                    conn.local,
+                    conn.remote,
+                    conn.send_next,
+                    conn.recv_next,
+                    flags::ACK,
+                    &[],
+                )?;
             }
         }
         TcpState::FinWait1 => {
@@ -600,7 +625,14 @@ fn process_segment(
             if flags & flags::FIN != 0 {
                 conn.recv_next += 1;
                 conn.state = TcpState::TimeWait;
-                send_segment(conn.local, conn.remote, conn.send_next, conn.recv_next, flags::ACK, &[])?;
+                send_segment(
+                    conn.local,
+                    conn.remote,
+                    conn.send_next,
+                    conn.recv_next,
+                    flags::ACK,
+                    &[],
+                )?;
             }
         }
         _ => {}

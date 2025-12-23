@@ -57,8 +57,8 @@ pub mod vfs;
 pub mod waitqueue;
 pub mod watchdog;
 
-use core::panic::PanicInfo;
 use alloc::alloc::{GlobalAlloc, Layout};
+use core::panic::PanicInfo;
 use linked_list_allocator::LockedHeap;
 
 /// Global kernel heap allocator
@@ -163,7 +163,10 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     // Parse device tree
     if boot_info.dtb_address != 0 {
-        kprintln!("[BOOT] Parsing device tree at 0x{:x}...", boot_info.dtb_address);
+        kprintln!(
+            "[BOOT] Parsing device tree at 0x{:x}...",
+            boot_info.dtb_address
+        );
         drivers::dtb::parse(boot_info.dtb_address);
     }
 
@@ -173,8 +176,10 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     // Load AI model if available
     if let Some(model_addr) = boot_info.ai_model_addr {
-        kprintln!("[BOOT] Loading scheduler AI model ({} KB)...",
-                 boot_info.ai_model_size / 1024);
+        kprintln!(
+            "[BOOT] Loading scheduler AI model ({} KB)...",
+            boot_info.ai_model_size / 1024
+        );
         scheduler::load_ai_model(model_addr, boot_info.ai_model_size);
     }
 
@@ -196,8 +201,12 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     // Initialize framebuffer if available
     if let Some(ref fb) = boot_info.framebuffer {
-        kprintln!("[BOOT] Framebuffer: {}x{} @ 0x{:x}",
-                 fb.width, fb.height, fb.address);
+        kprintln!(
+            "[BOOT] Framebuffer: {}x{} @ 0x{:x}",
+            fb.width,
+            fb.height,
+            fb.address
+        );
         drivers::framebuffer::init(fb);
     }
 

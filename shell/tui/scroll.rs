@@ -321,7 +321,10 @@ impl<T> ScrollList<T> {
     pub fn visible_items(&self) -> impl Iterator<Item = (usize, &T)> {
         let start = self.scroll_offset;
         let end = (start + self.viewport_height).min(self.items.len());
-        self.items[start..end].iter().enumerate().map(move |(i, item)| (start + i, item))
+        self.items[start..end]
+            .iter()
+            .enumerate()
+            .map(move |(i, item)| (start + i, item))
     }
 
     /// Page up
@@ -434,7 +437,8 @@ impl Scrollbar {
         let mut result = vec![self.track_char; self.height];
 
         let thumb_len = ((thumb_size * self.height as f32).max(1.0)) as usize;
-        let thumb_pos = ((position * (self.height - thumb_len) as f32) as usize).min(self.height - thumb_len);
+        let thumb_pos =
+            ((position * (self.height - thumb_len) as f32) as usize).min(self.height - thumb_len);
 
         for i in 0..thumb_len {
             if thumb_pos + i < self.height {

@@ -6,7 +6,7 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::NonNull;
 use spin::Mutex;
 
-use super::{PAGE_SIZE, allocate_frame, deallocate_frame, PhysFrame};
+use super::{allocate_frame, deallocate_frame, PhysFrame, PAGE_SIZE};
 
 /// Slab sizes (8, 16, 32, 64, 128, 256, 512, 1024, 2048 bytes)
 const SLAB_SIZES: [usize; 9] = [8, 16, 32, 64, 128, 256, 512, 1024, 2048];
@@ -334,7 +334,10 @@ impl SlabAllocator {
             let pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
             let order = pages.next_power_of_two().trailing_zeros() as usize;
 
-            let frame = super::FRAME_ALLOCATOR.lock().as_mut()?.allocate_order(order)?;
+            let frame = super::FRAME_ALLOCATOR
+                .lock()
+                .as_mut()?
+                .allocate_order(order)?;
             NonNull::new(frame.start_address() as *mut u8)
         }
     }

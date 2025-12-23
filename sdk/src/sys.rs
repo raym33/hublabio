@@ -50,9 +50,9 @@ impl System {
     pub fn memory_info() -> MemoryInfo {
         // TODO: Get from system
         MemoryInfo {
-            total: 4 * 1024 * 1024 * 1024,  // 4 GB
-            free: 2 * 1024 * 1024 * 1024,   // 2 GB
-            used: 2 * 1024 * 1024 * 1024,   // 2 GB
+            total: 4 * 1024 * 1024 * 1024, // 4 GB
+            free: 2 * 1024 * 1024 * 1024,  // 2 GB
+            used: 2 * 1024 * 1024 * 1024,  // 2 GB
         }
     }
 

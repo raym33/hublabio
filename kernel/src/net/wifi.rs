@@ -3,11 +3,11 @@
 //! 802.11 wireless networking support for Raspberry Pi.
 
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use spin::Mutex;
 
-use super::{MacAddress, Ipv4Address, InterfaceConfig, NetError};
+use super::{InterfaceConfig, Ipv4Address, MacAddress, NetError};
 
 /// WiFi frequency bands
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,8 +40,8 @@ pub struct WifiNetwork {
     pub channel: u8,
     pub band: WifiBand,
     pub security: WifiSecurity,
-    pub signal_strength: i8,  // dBm
-    pub frequency: u32,       // MHz
+    pub signal_strength: i8, // dBm
+    pub frequency: u32,      // MHz
 }
 
 /// WiFi connection state
@@ -118,9 +118,7 @@ impl Bcm43xxWifi {
 
     /// Read register
     fn read_reg(&self, offset: usize) -> u32 {
-        unsafe {
-            core::ptr::read_volatile((self.base + offset) as *const u32)
-        }
+        unsafe { core::ptr::read_volatile((self.base + offset) as *const u32) }
     }
 
     /// Write register
@@ -236,8 +234,10 @@ impl WifiDriver for Bcm43xxWifi {
             return Ok(());
         }
 
-        crate::kinfo!("WiFi: Disconnecting from '{}'",
-            self.current_ssid.as_deref().unwrap_or("unknown"));
+        crate::kinfo!(
+            "WiFi: Disconnecting from '{}'",
+            self.current_ssid.as_deref().unwrap_or("unknown")
+        );
 
         // Send deauth frame
         self.current_ssid = None;
@@ -451,11 +451,11 @@ impl Wpa2Handshake {
         // EAPOL header + key data
         msg.extend_from_slice(&[0x01, 0x03]); // Version, type
         msg.extend_from_slice(&[0x00, 0x77]); // Length
-        // Key descriptor
+                                              // Key descriptor
         msg.push(0x02); // Descriptor type (RSN)
         msg.extend_from_slice(&[0x01, 0x0A]); // Key info
         msg.extend_from_slice(&[0x00, 0x10]); // Key length
-        // Add SNonce and MIC
+                                              // Add SNonce and MIC
         msg.extend_from_slice(&self.snonce);
         msg
     }

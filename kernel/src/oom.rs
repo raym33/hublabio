@@ -154,8 +154,11 @@ impl OomKiller {
 
     /// Kill a process
     fn kill_process(&self, pid: Pid) -> bool {
-        crate::kerror!("OOM killer: Killing process {} (badness={})",
-                      pid.0, self.calculate_badness(pid));
+        crate::kerror!(
+            "OOM killer: Killing process {} (badness={})",
+            pid.0,
+            self.calculate_badness(pid)
+        );
 
         // Send SIGKILL
         crate::signal::send_signal(pid, Signal::Kill);
@@ -164,7 +167,7 @@ impl OomKiller {
         self.kill_count.fetch_add(1, Ordering::SeqCst);
         self.last_kill.store(
             crate::time::monotonic_ns() / 1_000_000_000,
-            Ordering::SeqCst
+            Ordering::SeqCst,
         );
 
         true
@@ -443,8 +446,12 @@ pub mod cgroup {
         }
 
         if let Some(victim) = best_pid {
-            crate::kerror!("Cgroup OOM: Killing {} in {} (badness={})",
-                          victim.0, cgroup_path, best_score);
+            crate::kerror!(
+                "Cgroup OOM: Killing {} in {} (badness={})",
+                victim.0,
+                cgroup_path,
+                best_score
+            );
 
             // Check if oom_group is set
             if cgroup.memory.lock().oom_group {

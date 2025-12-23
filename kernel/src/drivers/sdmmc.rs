@@ -138,12 +138,12 @@ mod cmd {
 #[derive(Clone, Copy, Debug)]
 pub enum ResponseType {
     None,
-    R1,      // Normal response
-    R1b,     // Normal response with busy
-    R2,      // CID/CSD register
-    R3,      // OCR register
-    R6,      // Published RCA response
-    R7,      // Card interface condition
+    R1,  // Normal response
+    R1b, // Normal response with busy
+    R2,  // CID/CSD register
+    R3,  // OCR register
+    R6,  // Published RCA response
+    R7,  // Card interface condition
 }
 
 /// Card identification register (CID)
@@ -379,7 +379,12 @@ impl SdController {
     }
 
     /// Send command
-    fn send_cmd(&mut self, cmd: u16, arg: u32, resp_type: ResponseType) -> Result<[u32; 4], SdError> {
+    fn send_cmd(
+        &mut self,
+        cmd: u16,
+        arg: u32,
+        resp_type: ResponseType,
+    ) -> Result<[u32; 4], SdError> {
         // Would:
         // 1. Wait for command line ready
         // 2. Write argument
@@ -392,7 +397,12 @@ impl SdController {
     }
 
     /// Send application command (preceded by CMD55)
-    fn send_acmd(&mut self, cmd: u16, arg: u32, resp_type: ResponseType) -> Result<[u32; 4], SdError> {
+    fn send_acmd(
+        &mut self,
+        cmd: u16,
+        arg: u32,
+        resp_type: ResponseType,
+    ) -> Result<[u32; 4], SdError> {
         let rca = self.card.as_ref().map(|c| c.rca).unwrap_or(0);
 
         // Send CMD55 first
@@ -428,7 +438,11 @@ impl SdController {
         }
 
         // Send ACMD41 to initialize SD card
-        let hcs = if card.card_type == CardType::SdHc { 1 << 30 } else { 0 };
+        let hcs = if card.card_type == CardType::SdHc {
+            1 << 30
+        } else {
+            0
+        };
         let arg = 0x00FF8000 | hcs; // OCR with voltage window
 
         for _ in 0..100 {
@@ -475,22 +489,34 @@ impl SdController {
         }
 
         // Increase clock speed
-        let target_clock = if card.high_speed { 50_000_000 } else { 25_000_000 };
+        let target_clock = if card.high_speed {
+            50_000_000
+        } else {
+            25_000_000
+        };
         self.set_clock(target_clock)?;
 
         card.state = CardState::Ready;
         self.card = Some(card);
 
         if let Some(ref card) = self.card {
-            crate::kinfo!("SD card detected: {:?}, capacity: {}",
-                         card.card_type, card.capacity_string());
+            crate::kinfo!(
+                "SD card detected: {:?}, capacity: {}",
+                card.card_type,
+                card.capacity_string()
+            );
         }
 
         Ok(())
     }
 
     /// Read sectors
-    pub fn read_sectors(&mut self, start_sector: u64, count: u32, buf: &mut [u8]) -> Result<(), SdError> {
+    pub fn read_sectors(
+        &mut self,
+        start_sector: u64,
+        count: u32,
+        buf: &mut [u8],
+    ) -> Result<(), SdError> {
         if buf.len() < (count as usize * 512) {
             return Err(SdError::InvalidParam);
         }
@@ -530,13 +556,20 @@ impl SdController {
         }
 
         self.stats.reads.fetch_add(1, Ordering::Relaxed);
-        self.stats.bytes_read.fetch_add((count as u64) * 512, Ordering::Relaxed);
+        self.stats
+            .bytes_read
+            .fetch_add((count as u64) * 512, Ordering::Relaxed);
 
         Ok(())
     }
 
     /// Write sectors
-    pub fn write_sectors(&mut self, start_sector: u64, count: u32, buf: &[u8]) -> Result<(), SdError> {
+    pub fn write_sectors(
+        &mut self,
+        start_sector: u64,
+        count: u32,
+        buf: &[u8],
+    ) -> Result<(), SdError> {
         if buf.len() < (count as usize * 512) {
             return Err(SdError::InvalidParam);
         }
@@ -576,7 +609,9 @@ impl SdController {
         }
 
         self.stats.writes.fetch_add(1, Ordering::Relaxed);
-        self.stats.bytes_written.fetch_add((count as u64) * 512, Ordering::Relaxed);
+        self.stats
+            .bytes_written
+            .fetch_add((count as u64) * 512, Ordering::Relaxed);
 
         Ok(())
     }
@@ -722,7 +757,7 @@ impl SdError {
             SdError::WriteProtected => -30, // EROFS
             SdError::NotSupported => -95,   // EOPNOTSUPP
             SdError::UnsupportedCard => -95,
-            SdError::IoError => -5,         // EIO
+            SdError::IoError => -5, // EIO
         }
     }
 }
@@ -766,9 +801,10 @@ pub fn register_controller(base_addr: usize) -> Result<u32, SdError> {
 
 /// Get controller by ID
 pub fn get_controller(id: u32) -> Option<&'static Mutex<SdController>> {
-    CONTROLLERS.read().get(&id).map(|c| unsafe {
-        &*(c as *const Mutex<SdController>)
-    })
+    CONTROLLERS
+        .read()
+        .get(&id)
+        .map(|c| unsafe { &*(c as *const Mutex<SdController>) })
 }
 
 /// Detect card on controller
@@ -779,14 +815,24 @@ pub fn detect_card(controller_id: u32) -> Result<(), SdError> {
 }
 
 /// Read sectors from SD card
-pub fn read_sectors(controller_id: u32, start: u64, count: u32, buf: &mut [u8]) -> Result<(), SdError> {
+pub fn read_sectors(
+    controller_id: u32,
+    start: u64,
+    count: u32,
+    buf: &mut [u8],
+) -> Result<(), SdError> {
     let controllers = CONTROLLERS.read();
     let controller = controllers.get(&controller_id).ok_or(SdError::NoCard)?;
     controller.lock().read_sectors(start, count, buf)
 }
 
 /// Write sectors to SD card
-pub fn write_sectors(controller_id: u32, start: u64, count: u32, buf: &[u8]) -> Result<(), SdError> {
+pub fn write_sectors(
+    controller_id: u32,
+    start: u64,
+    count: u32,
+    buf: &[u8],
+) -> Result<(), SdError> {
     let controllers = CONTROLLERS.read();
     let controller = controllers.get(&controller_id).ok_or(SdError::NoCard)?;
     controller.lock().write_sectors(start, count, buf)

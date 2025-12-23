@@ -8,8 +8,8 @@ use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 use spin::RwLock;
 
-use super::{Filesystem, FileHandle, DirEntry};
-use crate::vfs::{FileType, FileStat, FilePermissions, OpenFlags, VfsError};
+use super::{DirEntry, FileHandle, Filesystem};
+use crate::vfs::{FilePermissions, FileStat, FileType, OpenFlags, VfsError};
 
 /// Inode counter
 static INODE_COUNTER: AtomicU64 = AtomicU64::new(2); // 1 reserved for root
@@ -178,7 +178,11 @@ impl Filesystem for RamFs {
 
         Ok(FileHandle {
             inode: ino,
-            position: if flags.append { inode.data.len() as u64 } else { 0 },
+            position: if flags.append {
+                inode.data.len() as u64
+            } else {
+                0
+            },
             flags,
         })
     }

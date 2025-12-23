@@ -3,16 +3,16 @@
 //! Manages windows, layering, and screen composition.
 
 use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use spin::{Mutex, RwLock};
-use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
-use super::{Rect, Point, Size, Color};
-use super::window::{Window, WindowId, WindowFlags};
 use super::input::{InputEvent, MouseButton, TouchPhase};
-use super::theme::Theme;
 use super::render::Renderer;
+use super::theme::Theme;
+use super::window::{Window, WindowFlags, WindowId};
+use super::{Color, Point, Rect, Size};
 
 /// Compositor state
 pub struct Compositor {
@@ -164,8 +164,12 @@ impl Compositor {
     pub fn handle_input(&self, event: InputEvent) {
         match event {
             InputEvent::MouseMove { x, y } => {
-                self.mouse_x.store(x.max(0).min(self.width as i32 - 1) as u32, Ordering::SeqCst);
-                self.mouse_y.store(y.max(0).min(self.height as i32 - 1) as u32, Ordering::SeqCst);
+                self.mouse_x
+                    .store(x.max(0).min(self.width as i32 - 1) as u32, Ordering::SeqCst);
+                self.mouse_y.store(
+                    y.max(0).min(self.height as i32 - 1) as u32,
+                    Ordering::SeqCst,
+                );
                 self.dirty.store(true, Ordering::SeqCst);
 
                 // Send to focused window
@@ -252,7 +256,9 @@ impl Compositor {
                 }
             }
 
-            InputEvent::Key { scancode, pressed, .. } => {
+            InputEvent::Key {
+                scancode, pressed, ..
+            } => {
                 if let Some(id) = self.focused_window() {
                     if let Some(window) = self.get_window(id) {
                         let mut win = window.write();
@@ -317,7 +323,12 @@ impl Compositor {
             if let Some(window) = windows.get(&id) {
                 let win = window.read();
                 if win.is_visible() {
-                    self.draw_window(&mut buffer, &win, &theme, id == self.focused_window().unwrap_or(WindowId(0)));
+                    self.draw_window(
+                        &mut buffer,
+                        &win,
+                        &theme,
+                        id == self.focused_window().unwrap_or(WindowId(0)),
+                    );
                 }
             }
         }
@@ -351,12 +362,7 @@ impl Compositor {
 
         // Title bar
         if window.has_titlebar() {
-            let title_rect = Rect::new(
-                bounds.x,
-                bounds.y,
-                bounds.width,
-                theme.titlebar_height,
-            );
+            let title_rect = Rect::new(bounds.x, bounds.y, bounds.width, theme.titlebar_height);
 
             let title_color = if focused {
                 theme.titlebar_bg
@@ -401,12 +407,7 @@ impl Compositor {
             let alpha = 64 - (i as u8 * 8);
             let color = Color::with_alpha(0, 0, 0, alpha).to_argb();
 
-            let shadow_rect = Rect::new(
-                bounds.x + i,
-                bounds.y + i,
-                bounds.width,
-                bounds.height,
-            );
+            let shadow_rect = Rect::new(bounds.x + i, bounds.y + i, bounds.width, bounds.height);
 
             // Just draw the edges of the shadow
             for x in shadow_rect.x..(shadow_rect.x + shadow_rect.width as i32) {
@@ -594,12 +595,53 @@ impl Compositor {
 
         // Arrow cursor (12x18)
         let cursor_shape: &[(i32, i32)] = &[
-            (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (0, 8), (0, 9), (0, 10), (0, 11),
-            (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8), (1, 9), (1, 10), (1, 11),
-            (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (2, 9), (2, 10),
-            (3, 3), (3, 4), (3, 5), (3, 6), (3, 7), (3, 8), (3, 9),
-            (4, 4), (4, 5), (4, 6), (4, 7), (4, 8),
-            (5, 5), (5, 6), (5, 7),
+            (0, 0),
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (0, 4),
+            (0, 5),
+            (0, 6),
+            (0, 7),
+            (0, 8),
+            (0, 9),
+            (0, 10),
+            (0, 11),
+            (1, 1),
+            (1, 2),
+            (1, 3),
+            (1, 4),
+            (1, 5),
+            (1, 6),
+            (1, 7),
+            (1, 8),
+            (1, 9),
+            (1, 10),
+            (1, 11),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (2, 6),
+            (2, 7),
+            (2, 8),
+            (2, 9),
+            (2, 10),
+            (3, 3),
+            (3, 4),
+            (3, 5),
+            (3, 6),
+            (3, 7),
+            (3, 8),
+            (3, 9),
+            (4, 4),
+            (4, 5),
+            (4, 6),
+            (4, 7),
+            (4, 8),
+            (5, 5),
+            (5, 6),
+            (5, 7),
             (6, 6),
         ];
 
@@ -617,7 +659,15 @@ impl Compositor {
 
         // Outline
         let outline: &[(i32, i32)] = &[
-            (1, 0), (0, 12), (1, 12), (2, 11), (3, 10), (4, 9), (5, 8), (6, 7), (7, 6),
+            (1, 0),
+            (0, 12),
+            (1, 12),
+            (2, 11),
+            (3, 10),
+            (4, 9),
+            (5, 8),
+            (6, 7),
+            (7, 6),
         ];
 
         for &(dx, dy) in outline {

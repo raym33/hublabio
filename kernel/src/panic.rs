@@ -7,10 +7,10 @@
 //! - Core dump generation
 //! - Multi-CPU panic coordination
 
-use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use core::fmt::Write;
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::Write;
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use spin::Mutex;
 
 /// Maximum stack frames to unwind
@@ -59,7 +59,11 @@ impl SymbolTable {
 
     /// Add a symbol to the table
     pub fn add(&mut self, address: usize, size: usize, name: String) {
-        self.symbols.push(Symbol { address, size, name });
+        self.symbols.push(Symbol {
+            address,
+            size,
+            name,
+        });
     }
 
     /// Sort symbols by address for binary search
@@ -124,9 +128,7 @@ pub fn load_symbols(elf_data: &[u8]) {
     let shstr_offset = if shstrndx < shnum {
         let shdr_offset = shoff + shstrndx * shentsize;
         if shdr_offset + core::mem::size_of::<Elf64Shdr>() <= elf_data.len() {
-            let shdr = unsafe {
-                &*(elf_data.as_ptr().add(shdr_offset) as *const Elf64Shdr)
-            };
+            let shdr = unsafe { &*(elf_data.as_ptr().add(shdr_offset) as *const Elf64Shdr) };
             shdr.sh_offset as usize
         } else {
             0
@@ -145,15 +147,16 @@ pub fn load_symbols(elf_data: &[u8]) {
             continue;
         }
 
-        let shdr = unsafe {
-            &*(elf_data.as_ptr().add(shdr_offset) as *const Elf64Shdr)
-        };
+        let shdr = unsafe { &*(elf_data.as_ptr().add(shdr_offset) as *const Elf64Shdr) };
 
         // Check section name
         let name_offset = shstr_offset + shdr.sh_name as usize;
         if name_offset < elf_data.len() {
             let name_bytes = &elf_data[name_offset..];
-            let name_end = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len());
+            let name_end = name_bytes
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(name_bytes.len());
             let name = core::str::from_utf8(&name_bytes[..name_end]).unwrap_or("");
 
             if name == ".symtab" {
@@ -178,7 +181,8 @@ pub fn load_symbols(elf_data: &[u8]) {
 
         for i in 0..num_symbols {
             let entry_offset = sym_offset + i * sym_entsize;
-            if entry_offset + core::mem::size_of::<crate::process::elf::Elf64Sym>() > elf_data.len() {
+            if entry_offset + core::mem::size_of::<crate::process::elf::Elf64Sym>() > elf_data.len()
+            {
                 continue;
             }
 
@@ -188,7 +192,8 @@ pub fn load_symbols(elf_data: &[u8]) {
 
             // Only include function symbols
             let sym_type = sym.st_info & 0xf;
-            if sym_type != 2 { // STT_FUNC
+            if sym_type != 2 {
+                // STT_FUNC
                 continue;
             }
 
@@ -199,7 +204,10 @@ pub fn load_symbols(elf_data: &[u8]) {
             }
 
             let name_bytes = &elf_data[name_offset..];
-            let name_end = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len().min(256));
+            let name_end = name_bytes
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(name_bytes.len().min(256));
             if let Ok(name) = core::str::from_utf8(&name_bytes[..name_end]) {
                 if !name.is_empty() && sym.st_value != 0 {
                     table.add(
@@ -215,7 +223,14 @@ pub fn load_symbols(elf_data: &[u8]) {
     table.sort();
     *SYMBOL_TABLE.lock() = Some(table);
 
-    crate::kprintln!("  Loaded {} kernel symbols", SYMBOL_TABLE.lock().as_ref().map(|t| t.symbols.len()).unwrap_or(0));
+    crate::kprintln!(
+        "  Loaded {} kernel symbols",
+        SYMBOL_TABLE
+            .lock()
+            .as_ref()
+            .map(|t| t.symbols.len())
+            .unwrap_or(0)
+    );
 }
 
 /// Unwind the stack and return frames
@@ -291,7 +306,10 @@ fn format_frame(frame: &StackFrame, index: usize) -> String {
         if let Some((symbol, offset)) = table.resolve(frame.pc) {
             return alloc::format!(
                 "  #{:2} 0x{:016x} - {}+0x{:x}",
-                index, frame.pc, symbol.name, offset
+                index,
+                frame.pc,
+                symbol.name,
+                offset
             );
         }
     }
@@ -375,16 +393,22 @@ pub fn print_registers() {
         let base = i * 4;
         crate::kprintln!(
             "  X{:02}: 0x{:016x}  X{:02}: 0x{:016x}  X{:02}: 0x{:016x}  X{:02}: 0x{:016x}",
-            base, regs[base],
-            base + 1, regs[base + 1],
-            base + 2, regs[base + 2],
-            base + 3, regs[base + 3],
+            base,
+            regs[base],
+            base + 1,
+            regs[base + 1],
+            base + 2,
+            regs[base + 2],
+            base + 3,
+            regs[base + 3],
         );
     }
 
     crate::kprintln!(
         "  X28: 0x{:016x}  X29: 0x{:016x}  X30: 0x{:016x}",
-        regs[28], regs[29], regs[30]
+        regs[28],
+        regs[29],
+        regs[30]
     );
 
     crate::kprintln!("  SP:  0x{:016x}  PC:  0x{:016x}", sp, pc);
@@ -466,7 +490,10 @@ pub fn print_memory_info() {
     crate::kprintln!("  Total RAM:     {} MB", stats.total / (1024 * 1024));
     crate::kprintln!("  Used RAM:      {} MB", stats.used / (1024 * 1024));
     crate::kprintln!("  Free RAM:      {} MB", stats.free / (1024 * 1024));
-    crate::kprintln!("  Kernel heap:   {} MB", stats.kernel_heap_used / (1024 * 1024));
+    crate::kprintln!(
+        "  Kernel heap:   {} MB",
+        stats.kernel_heap_used / (1024 * 1024)
+    );
 }
 
 /// Print process information
@@ -504,14 +531,23 @@ pub fn handle_panic(info: &core::panic::PanicInfo) -> ! {
 
     // Print panic header
     crate::kprintln!();
-    crate::kprintln!("================================================================================");
+    crate::kprintln!(
+        "================================================================================"
+    );
     crate::kprintln!("                            KERNEL PANIC");
-    crate::kprintln!("================================================================================");
+    crate::kprintln!(
+        "================================================================================"
+    );
     crate::kprintln!();
 
     // Print panic message
     if let Some(location) = info.location() {
-        crate::kprintln!("Panic at {}:{}:{}", location.file(), location.line(), location.column());
+        crate::kprintln!(
+            "Panic at {}:{}:{}",
+            location.file(),
+            location.line(),
+            location.column()
+        );
     }
 
     if let Some(message) = info.message() {
@@ -535,7 +571,9 @@ pub fn handle_panic(info: &core::panic::PanicInfo) -> ! {
     print_process_info();
 
     crate::kprintln!();
-    crate::kprintln!("================================================================================");
+    crate::kprintln!(
+        "================================================================================"
+    );
 
     // Try to generate core dump
     if let Err(e) = generate_panic_dump() {

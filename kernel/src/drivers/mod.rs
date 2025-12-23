@@ -2,14 +2,14 @@
 //!
 //! Hardware drivers for various platforms.
 
-pub mod uart;
-pub mod gpio;
-pub mod framebuffer;
 pub mod dtb;
-pub mod usb;
-pub mod power;
+pub mod framebuffer;
+pub mod gpio;
 pub mod input;
+pub mod power;
 pub mod sdmmc;
+pub mod uart;
+pub mod usb;
 
 /// Initialize all drivers
 pub fn init() {

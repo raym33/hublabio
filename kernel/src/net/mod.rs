@@ -15,8 +15,8 @@ pub mod udp;
 pub mod wifi;
 
 use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU32, Ordering};
 use spin::{Mutex, RwLock};
 
@@ -91,10 +91,7 @@ impl Ipv4Address {
     }
 
     pub fn is_private(&self) -> bool {
-        matches!(
-            self.0,
-            [10, ..] | [172, 16..=31, ..] | [192, 168, ..]
-        )
+        matches!(self.0, [10, ..] | [172, 16..=31, ..] | [192, 168, ..])
     }
 }
 
@@ -251,11 +248,7 @@ pub enum NetError {
 /// Initialize network subsystem
 pub fn init() {
     // Create loopback interface
-    let lo = NetworkInterface::new(
-        "lo",
-        MacAddress::ZERO,
-        InterfaceDriver::Loopback,
-    );
+    let lo = NetworkInterface::new("lo", MacAddress::ZERO, InterfaceDriver::Loopback);
 
     let mut interfaces = INTERFACES.write();
     interfaces.insert(lo.index, lo);

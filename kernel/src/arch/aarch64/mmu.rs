@@ -120,11 +120,11 @@ impl PageTable {
 
 /// Virtual address breakdown
 pub struct VirtualAddress {
-    pub l0_idx: usize,  // Level 0 index (bits 47:39)
-    pub l1_idx: usize,  // Level 1 index (bits 38:30)
-    pub l2_idx: usize,  // Level 2 index (bits 29:21)
-    pub l3_idx: usize,  // Level 3 index (bits 20:12)
-    pub offset: usize,  // Page offset (bits 11:0)
+    pub l0_idx: usize, // Level 0 index (bits 47:39)
+    pub l1_idx: usize, // Level 1 index (bits 38:30)
+    pub l2_idx: usize, // Level 2 index (bits 29:21)
+    pub l3_idx: usize, // Level 3 index (bits 20:12)
+    pub offset: usize, // Page offset (bits 11:0)
 }
 
 impl VirtualAddress {
@@ -198,12 +198,7 @@ pub fn tlb_invalidate_addr(addr: u64) {
 /// Invalidate entire TLB
 pub fn tlb_invalidate_all() {
     unsafe {
-        asm!(
-            "dsb ishst",
-            "tlbi vmalle1is",
-            "dsb ish",
-            "isb",
-        );
+        asm!("dsb ishst", "tlbi vmalle1is", "dsb ish", "isb",);
     }
 }
 
@@ -213,10 +208,9 @@ pub fn tlb_invalidate_all() {
 /// Index 1: Device memory (nGnRnE)
 /// Index 2: Normal non-cacheable
 pub fn configure_mair() {
-    let mair: u64 =
-        (0xFF << 0) |  // Index 0: Normal, Write-Back
+    let mair: u64 = (0xFF << 0) |  // Index 0: Normal, Write-Back
         (0x00 << 8) |  // Index 1: Device-nGnRnE
-        (0x44 << 16);  // Index 2: Normal, Non-Cacheable
+        (0x44 << 16); // Index 2: Normal, Non-Cacheable
 
     unsafe {
         asm!(
@@ -231,8 +225,7 @@ pub fn configure_mair() {
 ///
 /// Sets up 48-bit virtual addresses, 4KB pages
 pub fn configure_tcr() {
-    let tcr: u64 =
-        (16 << 0) |   // T0SZ = 16 (48-bit VA for TTBR0)
+    let tcr: u64 = (16 << 0) |   // T0SZ = 16 (48-bit VA for TTBR0)
         (16 << 16) |  // T1SZ = 16 (48-bit VA for TTBR1)
         (0 << 6) |    // EPD0 = 0 (enable TTBR0 walks)
         (0 << 23) |   // EPD1 = 0 (enable TTBR1 walks)

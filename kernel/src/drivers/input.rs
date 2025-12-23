@@ -257,8 +257,8 @@ pub struct KeyboardState {
     /// LED state
     leds: LedState,
     /// Repeat settings
-    repeat_delay: u32,  // ms
-    repeat_rate: u32,   // chars/sec
+    repeat_delay: u32, // ms
+    repeat_rate: u32, // chars/sec
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -317,10 +317,26 @@ impl KeyboardState {
             29 | 97 => self.modifiers.ctrl = pressed || self.is_pressed(29) || self.is_pressed(97),
             42 | 54 => self.modifiers.shift = pressed || self.is_pressed(42) || self.is_pressed(54),
             56 | 100 => self.modifiers.alt = pressed || self.is_pressed(56) || self.is_pressed(100),
-            125 | 126 => self.modifiers.meta = pressed || self.is_pressed(125) || self.is_pressed(126),
-            58 => if pressed { self.modifiers.caps_lock = !self.modifiers.caps_lock; self.leds.caps_lock = self.modifiers.caps_lock; },
-            69 => if pressed { self.modifiers.num_lock = !self.modifiers.num_lock; self.leds.num_lock = self.modifiers.num_lock; },
-            70 => if pressed { self.leds.scroll_lock = !self.leds.scroll_lock; },
+            125 | 126 => {
+                self.modifiers.meta = pressed || self.is_pressed(125) || self.is_pressed(126)
+            }
+            58 => {
+                if pressed {
+                    self.modifiers.caps_lock = !self.modifiers.caps_lock;
+                    self.leds.caps_lock = self.modifiers.caps_lock;
+                }
+            }
+            69 => {
+                if pressed {
+                    self.modifiers.num_lock = !self.modifiers.num_lock;
+                    self.leds.num_lock = self.modifiers.num_lock;
+                }
+            }
+            70 => {
+                if pressed {
+                    self.leds.scroll_lock = !self.leds.scroll_lock;
+                }
+            }
             _ => {}
         }
     }
@@ -335,8 +351,16 @@ impl KeyboardState {
                 let digit = if code == 11 { 0 } else { code - 1 };
                 if self.modifiers.shift {
                     match digit {
-                        1 => '!', 2 => '@', 3 => '#', 4 => '$', 5 => '%',
-                        6 => '^', 7 => '&', 8 => '*', 9 => '(', 0 => ')',
+                        1 => '!',
+                        2 => '@',
+                        3 => '#',
+                        4 => '$',
+                        5 => '%',
+                        6 => '^',
+                        7 => '&',
+                        8 => '*',
+                        9 => '(',
+                        0 => ')',
                         _ => return None,
                     }
                 } else {
@@ -344,48 +368,270 @@ impl KeyboardState {
                 }
             }
             // Letters
-            16 => if shifted { 'Q' } else { 'q' },
-            17 => if shifted { 'W' } else { 'w' },
-            18 => if shifted { 'E' } else { 'e' },
-            19 => if shifted { 'R' } else { 'r' },
-            20 => if shifted { 'T' } else { 't' },
-            21 => if shifted { 'Y' } else { 'y' },
-            22 => if shifted { 'U' } else { 'u' },
-            23 => if shifted { 'I' } else { 'i' },
-            24 => if shifted { 'O' } else { 'o' },
-            25 => if shifted { 'P' } else { 'p' },
-            30 => if shifted { 'A' } else { 'a' },
-            31 => if shifted { 'S' } else { 's' },
-            32 => if shifted { 'D' } else { 'd' },
-            33 => if shifted { 'F' } else { 'f' },
-            34 => if shifted { 'G' } else { 'g' },
-            35 => if shifted { 'H' } else { 'h' },
-            36 => if shifted { 'J' } else { 'j' },
-            37 => if shifted { 'K' } else { 'k' },
-            38 => if shifted { 'L' } else { 'l' },
-            44 => if shifted { 'Z' } else { 'z' },
-            45 => if shifted { 'X' } else { 'x' },
-            46 => if shifted { 'C' } else { 'c' },
-            47 => if shifted { 'V' } else { 'v' },
-            48 => if shifted { 'B' } else { 'b' },
-            49 => if shifted { 'N' } else { 'n' },
-            50 => if shifted { 'M' } else { 'm' },
+            16 => {
+                if shifted {
+                    'Q'
+                } else {
+                    'q'
+                }
+            }
+            17 => {
+                if shifted {
+                    'W'
+                } else {
+                    'w'
+                }
+            }
+            18 => {
+                if shifted {
+                    'E'
+                } else {
+                    'e'
+                }
+            }
+            19 => {
+                if shifted {
+                    'R'
+                } else {
+                    'r'
+                }
+            }
+            20 => {
+                if shifted {
+                    'T'
+                } else {
+                    't'
+                }
+            }
+            21 => {
+                if shifted {
+                    'Y'
+                } else {
+                    'y'
+                }
+            }
+            22 => {
+                if shifted {
+                    'U'
+                } else {
+                    'u'
+                }
+            }
+            23 => {
+                if shifted {
+                    'I'
+                } else {
+                    'i'
+                }
+            }
+            24 => {
+                if shifted {
+                    'O'
+                } else {
+                    'o'
+                }
+            }
+            25 => {
+                if shifted {
+                    'P'
+                } else {
+                    'p'
+                }
+            }
+            30 => {
+                if shifted {
+                    'A'
+                } else {
+                    'a'
+                }
+            }
+            31 => {
+                if shifted {
+                    'S'
+                } else {
+                    's'
+                }
+            }
+            32 => {
+                if shifted {
+                    'D'
+                } else {
+                    'd'
+                }
+            }
+            33 => {
+                if shifted {
+                    'F'
+                } else {
+                    'f'
+                }
+            }
+            34 => {
+                if shifted {
+                    'G'
+                } else {
+                    'g'
+                }
+            }
+            35 => {
+                if shifted {
+                    'H'
+                } else {
+                    'h'
+                }
+            }
+            36 => {
+                if shifted {
+                    'J'
+                } else {
+                    'j'
+                }
+            }
+            37 => {
+                if shifted {
+                    'K'
+                } else {
+                    'k'
+                }
+            }
+            38 => {
+                if shifted {
+                    'L'
+                } else {
+                    'l'
+                }
+            }
+            44 => {
+                if shifted {
+                    'Z'
+                } else {
+                    'z'
+                }
+            }
+            45 => {
+                if shifted {
+                    'X'
+                } else {
+                    'x'
+                }
+            }
+            46 => {
+                if shifted {
+                    'C'
+                } else {
+                    'c'
+                }
+            }
+            47 => {
+                if shifted {
+                    'V'
+                } else {
+                    'v'
+                }
+            }
+            48 => {
+                if shifted {
+                    'B'
+                } else {
+                    'b'
+                }
+            }
+            49 => {
+                if shifted {
+                    'N'
+                } else {
+                    'n'
+                }
+            }
+            50 => {
+                if shifted {
+                    'M'
+                } else {
+                    'm'
+                }
+            }
             // Special keys
-            12 => if self.modifiers.shift { '_' } else { '-' },
-            13 => if self.modifiers.shift { '+' } else { '=' },
+            12 => {
+                if self.modifiers.shift {
+                    '_'
+                } else {
+                    '-'
+                }
+            }
+            13 => {
+                if self.modifiers.shift {
+                    '+'
+                } else {
+                    '='
+                }
+            }
             14 => '\x08', // Backspace
             15 => '\t',   // Tab
-            26 => if self.modifiers.shift { '{' } else { '[' },
-            27 => if self.modifiers.shift { '}' } else { ']' },
-            28 => '\n',   // Enter
-            39 => if self.modifiers.shift { ':' } else { ';' },
-            40 => if self.modifiers.shift { '"' } else { '\'' },
-            41 => if self.modifiers.shift { '~' } else { '`' },
-            43 => if self.modifiers.shift { '|' } else { '\\' },
-            51 => if self.modifiers.shift { '<' } else { ',' },
-            52 => if self.modifiers.shift { '>' } else { '.' },
-            53 => if self.modifiers.shift { '?' } else { '/' },
-            57 => ' ',    // Space
+            26 => {
+                if self.modifiers.shift {
+                    '{'
+                } else {
+                    '['
+                }
+            }
+            27 => {
+                if self.modifiers.shift {
+                    '}'
+                } else {
+                    ']'
+                }
+            }
+            28 => '\n', // Enter
+            39 => {
+                if self.modifiers.shift {
+                    ':'
+                } else {
+                    ';'
+                }
+            }
+            40 => {
+                if self.modifiers.shift {
+                    '"'
+                } else {
+                    '\''
+                }
+            }
+            41 => {
+                if self.modifiers.shift {
+                    '~'
+                } else {
+                    '`'
+                }
+            }
+            43 => {
+                if self.modifiers.shift {
+                    '|'
+                } else {
+                    '\\'
+                }
+            }
+            51 => {
+                if self.modifiers.shift {
+                    '<'
+                } else {
+                    ','
+                }
+            }
+            52 => {
+                if self.modifiers.shift {
+                    '>'
+                } else {
+                    '.'
+                }
+            }
+            53 => {
+                if self.modifiers.shift {
+                    '?'
+                } else {
+                    '/'
+                }
+            }
+            57 => ' ', // Space
             // Control characters
             _ if self.modifiers.ctrl => {
                 match code {
@@ -510,7 +756,11 @@ impl InputDevice {
             device_type: InputDeviceType::Touchscreen,
             events: Mutex::new(VecDeque::with_capacity(64)),
             waiters: crate::waitqueue::WaitQueue::new(),
-            state: Mutex::new(InputDeviceState::Touchscreen { x: 0, y: 0, touching: false }),
+            state: Mutex::new(InputDeviceState::Touchscreen {
+                x: 0,
+                y: 0,
+                touching: false,
+            }),
         }
     }
 
@@ -595,7 +845,11 @@ impl InputDevice {
             _ => return,
         };
 
-        self.push_event(InputEvent::new(EventType::Key, code, if pressed { 1 } else { 0 }));
+        self.push_event(InputEvent::new(
+            EventType::Key,
+            code,
+            if pressed { 1 } else { 0 },
+        ));
         self.push_event(InputEvent::syn());
     }
 
@@ -608,7 +862,12 @@ impl InputDevice {
     /// Handle touchscreen event
     pub fn handle_touch(&self, x: i32, y: i32, touching: bool) {
         let mut state = self.state.lock();
-        if let InputDeviceState::Touchscreen { x: ref mut tx, y: ref mut ty, touching: ref mut t } = *state {
+        if let InputDeviceState::Touchscreen {
+            x: ref mut tx,
+            y: ref mut ty,
+            touching: ref mut t,
+        } = *state
+        {
             *tx = x;
             *ty = y;
             *t = touching;
@@ -617,7 +876,11 @@ impl InputDevice {
 
         self.push_event(InputEvent::abs(AbsCode::X, x));
         self.push_event(InputEvent::abs(AbsCode::Y, y));
-        self.push_event(InputEvent::new(EventType::Key, KeyCode::BtnLeft as u16, if touching { 1 } else { 0 }));
+        self.push_event(InputEvent::new(
+            EventType::Key,
+            KeyCode::BtnLeft as u16,
+            if touching { 1 } else { 0 },
+        ));
         self.push_event(InputEvent::syn());
     }
 
@@ -658,17 +921,37 @@ pub struct HidMouseReport {
 }
 
 /// Parse USB HID keyboard report
-pub fn parse_hid_keyboard(device: &InputDevice, report: &HidKeyboardReport, prev: &HidKeyboardReport) {
+pub fn parse_hid_keyboard(
+    device: &InputDevice,
+    report: &HidKeyboardReport,
+    prev: &HidKeyboardReport,
+) {
     // Handle modifiers
     let mod_diff = report.modifiers ^ prev.modifiers;
-    if mod_diff & 0x01 != 0 { device.handle_key(KeyCode::LeftCtrl as u16, report.modifiers & 0x01 != 0); }
-    if mod_diff & 0x02 != 0 { device.handle_key(KeyCode::LeftShift as u16, report.modifiers & 0x02 != 0); }
-    if mod_diff & 0x04 != 0 { device.handle_key(KeyCode::LeftAlt as u16, report.modifiers & 0x04 != 0); }
-    if mod_diff & 0x08 != 0 { device.handle_key(KeyCode::LeftMeta as u16, report.modifiers & 0x08 != 0); }
-    if mod_diff & 0x10 != 0 { device.handle_key(KeyCode::RightCtrl as u16, report.modifiers & 0x10 != 0); }
-    if mod_diff & 0x20 != 0 { device.handle_key(KeyCode::RightShift as u16, report.modifiers & 0x20 != 0); }
-    if mod_diff & 0x40 != 0 { device.handle_key(KeyCode::RightAlt as u16, report.modifiers & 0x40 != 0); }
-    if mod_diff & 0x80 != 0 { device.handle_key(KeyCode::RightMeta as u16, report.modifiers & 0x80 != 0); }
+    if mod_diff & 0x01 != 0 {
+        device.handle_key(KeyCode::LeftCtrl as u16, report.modifiers & 0x01 != 0);
+    }
+    if mod_diff & 0x02 != 0 {
+        device.handle_key(KeyCode::LeftShift as u16, report.modifiers & 0x02 != 0);
+    }
+    if mod_diff & 0x04 != 0 {
+        device.handle_key(KeyCode::LeftAlt as u16, report.modifiers & 0x04 != 0);
+    }
+    if mod_diff & 0x08 != 0 {
+        device.handle_key(KeyCode::LeftMeta as u16, report.modifiers & 0x08 != 0);
+    }
+    if mod_diff & 0x10 != 0 {
+        device.handle_key(KeyCode::RightCtrl as u16, report.modifiers & 0x10 != 0);
+    }
+    if mod_diff & 0x20 != 0 {
+        device.handle_key(KeyCode::RightShift as u16, report.modifiers & 0x20 != 0);
+    }
+    if mod_diff & 0x40 != 0 {
+        device.handle_key(KeyCode::RightAlt as u16, report.modifiers & 0x40 != 0);
+    }
+    if mod_diff & 0x80 != 0 {
+        device.handle_key(KeyCode::RightMeta as u16, report.modifiers & 0x80 != 0);
+    }
 
     // Handle key releases (keys in prev but not in report)
     for &key in &prev.keys {
@@ -693,9 +976,15 @@ pub fn parse_hid_keyboard(device: &InputDevice, report: &HidKeyboardReport, prev
 pub fn parse_hid_mouse(device: &InputDevice, report: &HidMouseReport, prev: &HidMouseReport) {
     // Handle buttons
     let btn_diff = report.buttons ^ prev.buttons;
-    if btn_diff & 0x01 != 0 { device.handle_mouse_button(0, report.buttons & 0x01 != 0); }
-    if btn_diff & 0x02 != 0 { device.handle_mouse_button(1, report.buttons & 0x02 != 0); }
-    if btn_diff & 0x04 != 0 { device.handle_mouse_button(2, report.buttons & 0x04 != 0); }
+    if btn_diff & 0x01 != 0 {
+        device.handle_mouse_button(0, report.buttons & 0x01 != 0);
+    }
+    if btn_diff & 0x02 != 0 {
+        device.handle_mouse_button(1, report.buttons & 0x02 != 0);
+    }
+    if btn_diff & 0x04 != 0 {
+        device.handle_mouse_button(2, report.buttons & 0x04 != 0);
+    }
 
     // Handle movement
     if report.x != 0 || report.y != 0 {
@@ -714,34 +1003,34 @@ fn hid_to_keycode(hid: u8) -> Option<u16> {
     match hid {
         0x04..=0x1D => Some((hid - 0x04 + 30) as u16), // A-Z -> 30-55
         0x1E..=0x27 => Some((hid - 0x1E + 2) as u16),  // 1-0 -> 2-11
-        0x28 => Some(28),  // Enter
-        0x29 => Some(1),   // Escape
-        0x2A => Some(14),  // Backspace
-        0x2B => Some(15),  // Tab
-        0x2C => Some(57),  // Space
-        0x2D => Some(12),  // -
-        0x2E => Some(13),  // =
-        0x2F => Some(26),  // [
-        0x30 => Some(27),  // ]
-        0x31 => Some(43),  // backslash
-        0x33 => Some(39),  // ;
-        0x34 => Some(40),  // '
-        0x35 => Some(41),  // `
-        0x36 => Some(51),  // ,
-        0x37 => Some(52),  // .
-        0x38 => Some(53),  // /
-        0x39 => Some(58),  // Caps Lock
+        0x28 => Some(28),                              // Enter
+        0x29 => Some(1),                               // Escape
+        0x2A => Some(14),                              // Backspace
+        0x2B => Some(15),                              // Tab
+        0x2C => Some(57),                              // Space
+        0x2D => Some(12),                              // -
+        0x2E => Some(13),                              // =
+        0x2F => Some(26),                              // [
+        0x30 => Some(27),                              // ]
+        0x31 => Some(43),                              // backslash
+        0x33 => Some(39),                              // ;
+        0x34 => Some(40),                              // '
+        0x35 => Some(41),                              // `
+        0x36 => Some(51),                              // ,
+        0x37 => Some(52),                              // .
+        0x38 => Some(53),                              // /
+        0x39 => Some(58),                              // Caps Lock
         0x3A..=0x45 => Some((hid - 0x3A + 59) as u16), // F1-F12
-        0x49 => Some(110), // Insert
-        0x4A => Some(102), // Home
-        0x4B => Some(104), // Page Up
-        0x4C => Some(111), // Delete
-        0x4D => Some(107), // End
-        0x4E => Some(109), // Page Down
-        0x4F => Some(106), // Right
-        0x50 => Some(105), // Left
-        0x51 => Some(108), // Down
-        0x52 => Some(103), // Up
+        0x49 => Some(110),                             // Insert
+        0x4A => Some(102),                             // Home
+        0x4B => Some(104),                             // Page Up
+        0x4C => Some(111),                             // Delete
+        0x4D => Some(107),                             // End
+        0x4E => Some(109),                             // Page Down
+        0x4F => Some(106),                             // Right
+        0x50 => Some(105),                             // Left
+        0x51 => Some(108),                             // Down
+        0x52 => Some(103),                             // Up
         _ => None,
     }
 }
@@ -772,10 +1061,14 @@ pub fn register_device(device: InputDevice) -> u32 {
     // Set as primary if first of its type
     match device_type {
         InputDeviceType::Keyboard => {
-            PRIMARY_KEYBOARD.compare_exchange(u32::MAX, id, Ordering::SeqCst, Ordering::SeqCst).ok();
+            PRIMARY_KEYBOARD
+                .compare_exchange(u32::MAX, id, Ordering::SeqCst, Ordering::SeqCst)
+                .ok();
         }
         InputDeviceType::Mouse | InputDeviceType::Touchpad => {
-            PRIMARY_MOUSE.compare_exchange(u32::MAX, id, Ordering::SeqCst, Ordering::SeqCst).ok();
+            PRIMARY_MOUSE
+                .compare_exchange(u32::MAX, id, Ordering::SeqCst, Ordering::SeqCst)
+                .ok();
         }
         _ => {}
     }
@@ -809,21 +1102,30 @@ pub fn create_touchscreen(name: &str) -> u32 {
 pub fn get_device(id: u32) -> Option<&'static InputDevice> {
     let devices = INPUT_DEVICES.read();
     // This is safe because devices are never removed
-    devices.iter().find(|d| d.id == id).map(|d| unsafe {
-        &*(d as *const InputDevice)
-    })
+    devices
+        .iter()
+        .find(|d| d.id == id)
+        .map(|d| unsafe { &*(d as *const InputDevice) })
 }
 
 /// Get primary keyboard
 pub fn keyboard() -> Option<&'static InputDevice> {
     let id = PRIMARY_KEYBOARD.load(Ordering::SeqCst);
-    if id == u32::MAX { None } else { get_device(id) }
+    if id == u32::MAX {
+        None
+    } else {
+        get_device(id)
+    }
 }
 
 /// Get primary mouse
 pub fn mouse() -> Option<&'static InputDevice> {
     let id = PRIMARY_MOUSE.load(Ordering::SeqCst);
-    if id == u32::MAX { None } else { get_device(id) }
+    if id == u32::MAX {
+        None
+    } else {
+        get_device(id)
+    }
 }
 
 /// Read character from keyboard (blocking)

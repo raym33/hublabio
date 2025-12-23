@@ -2,8 +2,8 @@
 //!
 //! Audio buffer management, format conversion, and device abstraction.
 
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 /// Audio sample format
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -140,7 +140,8 @@ impl AudioBuffer {
         }
 
         let channels = self.format.channels as usize;
-        let mono_samples: Vec<i16> = self.samples
+        let mono_samples: Vec<i16> = self
+            .samples
             .chunks(channels)
             .map(|frame| {
                 let sum: i32 = frame.iter().map(|&s| s as i32).sum();
@@ -202,7 +203,9 @@ impl AudioBuffer {
             return;
         }
 
-        let max_abs = self.samples.iter()
+        let max_abs = self
+            .samples
+            .iter()
             .map(|&s| (s as i32).abs())
             .max()
             .unwrap_or(0);
@@ -232,31 +235,25 @@ impl AudioBuffer {
             return 0.0;
         }
 
-        let sum_squares: f64 = self.samples.iter()
-            .map(|&s| (s as f64) * (s as f64))
-            .sum();
+        let sum_squares: f64 = self.samples.iter().map(|&s| (s as f64) * (s as f64)).sum();
 
         (sum_squares / self.samples.len() as f64).sqrt() as f32
     }
 
     /// Get peak level
     pub fn peak_level(&self) -> i16 {
-        self.samples.iter()
-            .map(|&s| s.abs())
-            .max()
-            .unwrap_or(0)
+        self.samples.iter().map(|&s| s.abs()).max().unwrap_or(0)
     }
 
     /// Convert to f32 samples (normalized -1.0 to 1.0)
     pub fn to_f32(&self) -> Vec<f32> {
-        self.samples.iter()
-            .map(|&s| s as f32 / 32768.0)
-            .collect()
+        self.samples.iter().map(|&s| s as f32 / 32768.0).collect()
     }
 
     /// Create from f32 samples
     pub fn from_f32(samples: &[f32], format: AudioFormat) -> Self {
-        let i16_samples: Vec<i16> = samples.iter()
+        let i16_samples: Vec<i16> = samples
+            .iter()
             .map(|&s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
             .collect();
 

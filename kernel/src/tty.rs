@@ -4,37 +4,37 @@
 
 use alloc::collections::VecDeque;
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use spin::Mutex;
-use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
 /// TTY buffer size
 pub const TTY_BUFFER_SIZE: usize = 4096;
 
 /// Special characters
 pub mod chars {
-    pub const EOF: u8 = 0x04;      // Ctrl+D
-    pub const EOL: u8 = b'\n';     // Newline
-    pub const ERASE: u8 = 0x7F;    // Backspace/Delete
-    pub const KILL: u8 = 0x15;     // Ctrl+U (kill line)
-    pub const INTR: u8 = 0x03;     // Ctrl+C
-    pub const QUIT: u8 = 0x1C;     // Ctrl+\
-    pub const SUSP: u8 = 0x1A;     // Ctrl+Z
-    pub const START: u8 = 0x11;   // Ctrl+Q
-    pub const STOP: u8 = 0x13;    // Ctrl+S
+    pub const EOF: u8 = 0x04; // Ctrl+D
+    pub const EOL: u8 = b'\n'; // Newline
+    pub const ERASE: u8 = 0x7F; // Backspace/Delete
+    pub const KILL: u8 = 0x15; // Ctrl+U (kill line)
+    pub const INTR: u8 = 0x03; // Ctrl+C
+    pub const QUIT: u8 = 0x1C; // Ctrl+\
+    pub const SUSP: u8 = 0x1A; // Ctrl+Z
+    pub const START: u8 = 0x11; // Ctrl+Q
+    pub const STOP: u8 = 0x13; // Ctrl+S
 }
 
 /// TTY input modes
 #[derive(Clone, Copy, Debug)]
 pub struct InputModes {
-    pub icrnl: bool,   // Map CR to NL on input
-    pub inlcr: bool,   // Map NL to CR on input
-    pub igncr: bool,   // Ignore CR
-    pub iuclc: bool,   // Map uppercase to lowercase
-    pub ixon: bool,    // Enable XON/XOFF flow control
-    pub ixoff: bool,   // Enable input flow control
-    pub istrip: bool,  // Strip 8th bit
+    pub icrnl: bool,  // Map CR to NL on input
+    pub inlcr: bool,  // Map NL to CR on input
+    pub igncr: bool,  // Ignore CR
+    pub iuclc: bool,  // Map uppercase to lowercase
+    pub ixon: bool,   // Enable XON/XOFF flow control
+    pub ixoff: bool,  // Enable input flow control
+    pub istrip: bool, // Strip 8th bit
 }
 
 impl Default for InputModes {
@@ -54,12 +54,12 @@ impl Default for InputModes {
 /// TTY output modes
 #[derive(Clone, Copy, Debug)]
 pub struct OutputModes {
-    pub opost: bool,   // Post-process output
-    pub onlcr: bool,   // Map NL to CR-NL
-    pub ocrnl: bool,   // Map CR to NL
-    pub onocr: bool,   // No CR at column 0
-    pub onlret: bool,  // NL performs CR function
-    pub olcuc: bool,   // Map lowercase to uppercase
+    pub opost: bool,  // Post-process output
+    pub onlcr: bool,  // Map NL to CR-NL
+    pub ocrnl: bool,  // Map CR to NL
+    pub onocr: bool,  // No CR at column 0
+    pub onlret: bool, // NL performs CR function
+    pub olcuc: bool,  // Map lowercase to uppercase
 }
 
 impl Default for OutputModes {
@@ -78,14 +78,14 @@ impl Default for OutputModes {
 /// TTY local modes
 #[derive(Clone, Copy, Debug)]
 pub struct LocalModes {
-    pub echo: bool,    // Echo input
-    pub echoe: bool,   // Echo erase as backspace
-    pub echok: bool,   // Echo NL after kill
-    pub echonl: bool,  // Echo NL
-    pub icanon: bool,  // Canonical mode (line editing)
-    pub isig: bool,    // Enable signals
-    pub iexten: bool,  // Extended processing
-    pub noflsh: bool,  // Disable flush after interrupt
+    pub echo: bool,   // Echo input
+    pub echoe: bool,  // Echo erase as backspace
+    pub echok: bool,  // Echo NL after kill
+    pub echonl: bool, // Echo NL
+    pub icanon: bool, // Canonical mode (line editing)
+    pub isig: bool,   // Enable signals
+    pub iexten: bool, // Extended processing
+    pub noflsh: bool, // Disable flush after interrupt
 }
 
 impl Default for LocalModes {
@@ -109,22 +109,22 @@ pub struct Termios {
     pub input: InputModes,
     pub output: OutputModes,
     pub local: LocalModes,
-    pub cc: [u8; 32],  // Control characters
+    pub cc: [u8; 32], // Control characters
 }
 
 impl Default for Termios {
     fn default() -> Self {
         let mut cc = [0u8; 32];
-        cc[0] = chars::INTR;   // VINTR
-        cc[1] = chars::QUIT;   // VQUIT
-        cc[2] = chars::ERASE;  // VERASE
-        cc[3] = chars::KILL;   // VKILL
-        cc[4] = chars::EOF;    // VEOF
-        cc[5] = 0;             // VTIME
-        cc[6] = 1;             // VMIN
-        cc[7] = chars::SUSP;   // VSUSP
-        cc[8] = chars::START;  // VSTART
-        cc[9] = chars::STOP;   // VSTOP
+        cc[0] = chars::INTR; // VINTR
+        cc[1] = chars::QUIT; // VQUIT
+        cc[2] = chars::ERASE; // VERASE
+        cc[3] = chars::KILL; // VKILL
+        cc[4] = chars::EOF; // VEOF
+        cc[5] = 0; // VTIME
+        cc[6] = 1; // VMIN
+        cc[7] = chars::SUSP; // VSUSP
+        cc[8] = chars::START; // VSTART
+        cc[9] = chars::STOP; // VSTOP
 
         Self {
             input: InputModes::default(),
@@ -151,7 +151,7 @@ pub struct Tty {
     pub winsize: Mutex<WinSize>,
     pub input_buffer: Mutex<VecDeque<u8>>,
     pub output_buffer: Mutex<VecDeque<u8>>,
-    pub line_buffer: Mutex<Vec<u8>>,  // For canonical mode
+    pub line_buffer: Mutex<Vec<u8>>, // For canonical mode
     pub foreground_pgrp: AtomicU32,
     pub session: AtomicU32,
     pub stopped: AtomicBool,
@@ -163,7 +163,12 @@ impl Tty {
         Self {
             name: String::from(name),
             termios: Mutex::new(Termios::default()),
-            winsize: Mutex::new(WinSize { rows: 24, cols: 80, xpixel: 0, ypixel: 0 }),
+            winsize: Mutex::new(WinSize {
+                rows: 24,
+                cols: 80,
+                xpixel: 0,
+                ypixel: 0,
+            }),
             input_buffer: Mutex::new(VecDeque::with_capacity(TTY_BUFFER_SIZE)),
             output_buffer: Mutex::new(VecDeque::with_capacity(TTY_BUFFER_SIZE)),
             line_buffer: Mutex::new(Vec::with_capacity(256)),

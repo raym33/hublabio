@@ -6,9 +6,9 @@ use alloc::collections::{BTreeMap, VecDeque};
 use alloc::vec::Vec;
 use spin::Mutex;
 
-use super::{Ipv4Address, NetError};
 use super::ip::{self, Ipv4Header};
 use super::tcp::SocketAddr;
+use super::{Ipv4Address, NetError};
 
 /// UDP header size
 pub const HEADER_SIZE: usize = 8;
@@ -54,11 +54,7 @@ struct UdpSocket {
 static SOCKETS: Mutex<BTreeMap<SocketAddr, UdpSocket>> = Mutex::new(BTreeMap::new());
 
 /// Calculate UDP checksum
-fn calculate_checksum(
-    src_ip: Ipv4Address,
-    dst_ip: Ipv4Address,
-    udp_data: &[u8],
-) -> u16 {
+fn calculate_checksum(src_ip: Ipv4Address, dst_ip: Ipv4Address, udp_data: &[u8]) -> u16 {
     let mut sum: u32 = 0;
 
     // Pseudo-header
@@ -84,7 +80,11 @@ fn calculate_checksum(
     }
 
     let result = !(sum as u16);
-    if result == 0 { 0xFFFF } else { result }
+    if result == 0 {
+        0xFFFF
+    } else {
+        result
+    }
 }
 
 /// Bind a UDP socket
@@ -95,10 +95,13 @@ pub fn bind(addr: SocketAddr) -> Result<(), NetError> {
         return Err(NetError::AddrInUse);
     }
 
-    sockets.insert(addr, UdpSocket {
-        local: addr,
-        recv_queue: VecDeque::new(),
-    });
+    sockets.insert(
+        addr,
+        UdpSocket {
+            local: addr,
+            recv_queue: VecDeque::new(),
+        },
+    );
 
     crate::kdebug!("UDP bound to {}:{}", addr.ip, addr.port);
     Ok(())
@@ -110,11 +113,7 @@ pub fn close(addr: &SocketAddr) {
 }
 
 /// Send UDP datagram
-pub fn send_to(
-    from: SocketAddr,
-    to: SocketAddr,
-    data: &[u8],
-) -> Result<usize, NetError> {
+pub fn send_to(from: SocketAddr, to: SocketAddr, data: &[u8]) -> Result<usize, NetError> {
     let total_len = HEADER_SIZE + data.len();
 
     // Build header
@@ -154,9 +153,7 @@ pub fn receive(ip_header: &Ipv4Header, data: &[u8]) -> Result<(), NetError> {
         return Err(NetError::InvalidPacket);
     }
 
-    let header = unsafe {
-        core::ptr::read_unaligned(data.as_ptr() as *const UdpHeader)
-    };
+    let header = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const UdpHeader) };
 
     let payload = &data[HEADER_SIZE..];
 
@@ -165,8 +162,10 @@ pub fn receive(ip_header: &Ipv4Header, data: &[u8]) -> Result<(), NetError> {
 
     crate::kdebug!(
         "UDP: {}:{} -> {}:{} len={}",
-        from.ip, from.port,
-        to.ip, to.port,
+        from.ip,
+        from.port,
+        to.ip,
+        to.port,
         payload.len()
     );
 

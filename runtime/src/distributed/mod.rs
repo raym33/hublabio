@@ -157,7 +157,8 @@ impl ClusterManager {
         let mut assignments = Vec::new();
 
         // Collect available nodes sorted by memory
-        let mut available_nodes: Vec<_> = self.nodes
+        let mut available_nodes: Vec<_> = self
+            .nodes
             .values()
             .filter(|n| n.status == NodeStatus::Available || n.status == NodeStatus::Ready)
             .collect();

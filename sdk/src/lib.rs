@@ -32,19 +32,19 @@
 extern crate alloc;
 
 pub mod ai;
-pub mod ipc;
-pub mod ui;
 pub mod fs;
+pub mod ipc;
 pub mod net;
 pub mod sys;
+pub mod ui;
 
 /// Prelude for convenient imports
 pub mod prelude {
     pub use crate::ai::{AiClient, AiError};
-    pub use crate::ipc::{Channel, Message};
-    pub use crate::ui::{App, Widget, View};
     pub use crate::fs::{File, FileSystem};
-    pub use crate::sys::{System, ProcessInfo};
+    pub use crate::ipc::{Channel, Message};
+    pub use crate::sys::{ProcessInfo, System};
+    pub use crate::ui::{App, View, Widget};
     pub use crate::Result;
 }
 

@@ -44,7 +44,7 @@ impl Default for CoreConfig {
             enabled: true,
             format: CoreFormat::Elf,
             pattern: String::from("core.%p"),
-            max_size: 0, // Unlimited
+            max_size: 0,  // Unlimited
             filter: 0x3F, // Default filter
             pipe_program: None,
         }
@@ -407,13 +407,19 @@ fn build_elf_header(num_mappings: usize) -> Elf64Ehdr {
     ehdr.e_type = elf::ET_CORE;
 
     #[cfg(target_arch = "aarch64")]
-    { ehdr.e_machine = elf::EM_AARCH64; }
+    {
+        ehdr.e_machine = elf::EM_AARCH64;
+    }
 
     #[cfg(target_arch = "riscv64")]
-    { ehdr.e_machine = elf::EM_RISCV; }
+    {
+        ehdr.e_machine = elf::EM_RISCV;
+    }
 
     #[cfg(target_arch = "x86_64")]
-    { ehdr.e_machine = elf::EM_X86_64; }
+    {
+        ehdr.e_machine = elf::EM_X86_64;
+    }
 
     ehdr.e_version = 1;
     ehdr.e_phoff = core::mem::size_of::<Elf64Ehdr>() as u64;
@@ -496,8 +502,7 @@ fn collect_mappings(pid: Pid, filter: u32) -> Result<Vec<CoreMapping>, CoreDumpE
 
     // Would get from process address space
     // For now, create placeholder
-    let space = crate::cow::get_address_space(pid)
-        .ok_or(CoreDumpError::NoProcess)?;
+    let space = crate::cow::get_address_space(pid).ok_or(CoreDumpError::NoProcess)?;
 
     // Would iterate VMAs
     // Placeholder: add stack
@@ -536,7 +541,10 @@ fn expand_pattern(pattern: &str, pid: Pid, name: &str, signal: Signal) -> String
     result = result.replace("%u", "0"); // Would get UID
     result = result.replace("%g", "0"); // Would get GID
     result = result.replace("%s", &(signal.as_num() as u32).to_string());
-    result = result.replace("%t", &(crate::time::monotonic_ns() / 1_000_000_000).to_string());
+    result = result.replace(
+        "%t",
+        &(crate::time::monotonic_ns() / 1_000_000_000).to_string(),
+    );
     result = result.replace("%h", "hublab");
     result = result.replace("%e", name);
     result = result.replace("%%", "%");
@@ -556,7 +564,12 @@ fn write_core_file(path: &str, data: &[u8]) -> Result<(), CoreDumpError> {
 }
 
 /// Pipe core dump to program
-fn pipe_core_dump(program: &str, data: &[u8], pid: Pid, signal: Signal) -> Result<(), CoreDumpError> {
+fn pipe_core_dump(
+    program: &str,
+    data: &[u8],
+    pid: Pid,
+    signal: Signal,
+) -> Result<(), CoreDumpError> {
     // Would execute program and pipe data
     crate::kdebug!("Would pipe {} bytes to {}", data.len(), program);
     Ok(())
@@ -564,12 +577,7 @@ fn pipe_core_dump(program: &str, data: &[u8], pid: Pid, signal: Signal) -> Resul
 
 /// Convert struct to bytes
 fn as_bytes<T: Sized>(p: &T) -> &[u8] {
-    unsafe {
-        core::slice::from_raw_parts(
-            (p as *const T) as *const u8,
-            core::mem::size_of::<T>()
-        )
-    }
+    unsafe { core::slice::from_raw_parts((p as *const T) as *const u8, core::mem::size_of::<T>()) }
 }
 
 /// Core dump error
@@ -592,11 +600,11 @@ pub enum CoreDumpError {
 impl CoreDumpError {
     pub fn to_errno(&self) -> i32 {
         match self {
-            CoreDumpError::Disabled => -1,   // EPERM
-            CoreDumpError::LimitZero => -1,  // EPERM
-            CoreDumpError::NoProcess => -3,  // ESRCH
-            CoreDumpError::Busy => -16,      // EBUSY
-            CoreDumpError::IoError => -5,    // EIO
+            CoreDumpError::Disabled => -1,     // EPERM
+            CoreDumpError::LimitZero => -1,    // EPERM
+            CoreDumpError::NoProcess => -3,    // ESRCH
+            CoreDumpError::Busy => -16,        // EBUSY
+            CoreDumpError::IoError => -5,      // EIO
             CoreDumpError::OutOfMemory => -12, // ENOMEM
         }
     }
@@ -638,17 +646,18 @@ pub fn get_stats() -> u64 {
 
 /// Check if signal should generate core dump
 pub fn should_dump(signal: Signal) -> bool {
-    matches!(signal,
-        Signal::SIGQUIT |
-        Signal::SIGILL |
-        Signal::SIGTRAP |
-        Signal::SIGABRT |
-        Signal::SIGBUS |
-        Signal::SIGFPE |
-        Signal::SIGSEGV |
-        Signal::SIGXCPU |
-        Signal::SIGXFSZ |
-        Signal::SIGSYS
+    matches!(
+        signal,
+        Signal::SIGQUIT
+            | Signal::SIGILL
+            | Signal::SIGTRAP
+            | Signal::SIGABRT
+            | Signal::SIGBUS
+            | Signal::SIGFPE
+            | Signal::SIGSEGV
+            | Signal::SIGXCPU
+            | Signal::SIGXFSZ
+            | Signal::SIGSYS
     )
 }
 

@@ -141,10 +141,7 @@ impl View {
 #[derive(Debug, Clone)]
 pub enum Widget {
     /// Text widget
-    Text {
-        content: String,
-        style: TextStyle,
-    },
+    Text { content: String, style: TextStyle },
     /// Container widget
     Container {
         children: Vec<Widget>,
@@ -158,25 +155,16 @@ pub enum Widget {
         focused: bool,
     },
     /// Button widget
-    Button {
-        label: String,
-        disabled: bool,
-    },
+    Button { label: String, disabled: bool },
     /// List widget
     List {
         items: Vec<ListItem>,
         selected: usize,
     },
     /// Progress bar
-    Progress {
-        value: f32,
-        max: f32,
-    },
+    Progress { value: f32, max: f32 },
     /// Scrollable area
-    Scroll {
-        child: Box<Widget>,
-        offset: u16,
-    },
+    Scroll { child: Box<Widget>, offset: u16 },
     /// Empty widget
     Empty,
 }

@@ -48,9 +48,11 @@ impl AslrEntropy {
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
 
-            if self.state.compare_exchange(
-                old, new, Ordering::SeqCst, Ordering::SeqCst
-            ).is_ok() {
+            if self
+                .state
+                .compare_exchange(old, new, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
+            {
                 // Additional mixing
                 let mixed = new ^ (new >> 33);
                 let mixed = mixed.wrapping_mul(0xff51afd7ed558ccd);
@@ -362,11 +364,7 @@ impl MemoryLayout {
             // Random offset within available range
             let max_addr = self.stack_guard.saturating_sub(aligned_size);
             if max_addr > self.mmap_base {
-                return ENTROPY.random_aligned(
-                    self.mmap_base,
-                    max_addr,
-                    layout::PAGE_SIZE,
-                );
+                return ENTROPY.random_aligned(self.mmap_base, max_addr, layout::PAGE_SIZE);
             }
         }
 
@@ -383,9 +381,12 @@ impl MemoryLayout {
 
     /// Validate range is in user space
     pub fn is_user_range(&self, addr: usize, len: usize) -> bool {
-        addr >= layout::USER_START &&
-        addr < layout::USER_END &&
-        addr.checked_add(len).map(|end| end <= layout::USER_END).unwrap_or(false)
+        addr >= layout::USER_START
+            && addr < layout::USER_END
+            && addr
+                .checked_add(len)
+                .map(|end| end <= layout::USER_END)
+                .unwrap_or(false)
     }
 }
 
@@ -507,9 +508,9 @@ mod tests {
 
         // Layouts should be different (with high probability)
         assert!(
-            layout1.stack_top != layout2.stack_top ||
-            layout1.heap_start != layout2.heap_start ||
-            layout1.mmap_base != layout2.mmap_base
+            layout1.stack_top != layout2.stack_top
+                || layout1.heap_start != layout2.heap_start
+                || layout1.mmap_base != layout2.mmap_base
         );
     }
 

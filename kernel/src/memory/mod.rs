@@ -3,16 +3,16 @@
 //! Provides physical and virtual memory management for the kernel.
 //! Supports ARM64 and RISC-V memory models with 4KB/16KB/64KB pages.
 
-use core::sync::atomic::{AtomicUsize, Ordering};
-use spin::Mutex;
 use alloc::vec::Vec;
 use bitflags::bitflags;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use spin::Mutex;
 
-use crate::{MemoryMap, MemoryRegion, MemoryKind};
+use crate::{MemoryKind, MemoryMap, MemoryRegion};
 
 pub mod allocator;
-pub mod paging;
 pub mod heap;
+pub mod paging;
 
 /// Kernel heap start address (16 MB mark)
 pub const KERNEL_HEAP_START: usize = 0x1000000;

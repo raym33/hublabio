@@ -162,7 +162,9 @@ impl CapSet {
 
     /// Full capability set (all capabilities)
     pub const fn full() -> Self {
-        Self { bits: (1u64 << Cap::COUNT) - 1 }
+        Self {
+            bits: (1u64 << Cap::COUNT) - 1,
+        }
     }
 
     /// Check if capability is present
@@ -187,17 +189,23 @@ impl CapSet {
 
     /// Union of two sets
     pub fn union(&self, other: &CapSet) -> CapSet {
-        CapSet { bits: self.bits | other.bits }
+        CapSet {
+            bits: self.bits | other.bits,
+        }
     }
 
     /// Intersection of two sets
     pub fn intersect(&self, other: &CapSet) -> CapSet {
-        CapSet { bits: self.bits & other.bits }
+        CapSet {
+            bits: self.bits & other.bits,
+        }
     }
 
     /// Difference (self - other)
     pub fn difference(&self, other: &CapSet) -> CapSet {
-        CapSet { bits: self.bits & !other.bits }
+        CapSet {
+            bits: self.bits & !other.bits,
+        }
     }
 
     /// Check if set is empty
@@ -223,7 +231,9 @@ impl CapSet {
 
     /// Create from raw bits
     pub fn from_bits(bits: u64) -> Self {
-        Self { bits: bits & ((1u64 << Cap::COUNT) - 1) }
+        Self {
+            bits: bits & ((1u64 << Cap::COUNT) - 1),
+        }
     }
 
     /// Get raw bits
@@ -321,7 +331,9 @@ impl ProcessCaps {
         if let Some(fcaps) = file_caps {
             // P'(permitted) = (P(inheritable) & F(inheritable)) |
             //                 (F(permitted) & P(bounding)) | P'(ambient)
-            self.permitted = self.inheritable.intersect(&fcaps.inheritable)
+            self.permitted = self
+                .inheritable
+                .intersect(&fcaps.inheritable)
                 .union(&fcaps.permitted.intersect(&self.bounding))
                 .union(&self.ambient);
 
@@ -400,11 +412,9 @@ impl FileCaps {
         let inheritable_hi = u32::from_le_bytes([data[16], data[17], data[18], data[19]]);
 
         Some(Self {
-            permitted: CapSet::from_bits(
-                (permitted_lo as u64) | ((permitted_hi as u64) << 32)
-            ),
+            permitted: CapSet::from_bits((permitted_lo as u64) | ((permitted_hi as u64) << 32)),
             inheritable: CapSet::from_bits(
-                (inheritable_lo as u64) | ((inheritable_hi as u64) << 32)
+                (inheritable_lo as u64) | ((inheritable_hi as u64) << 32),
             ),
             effective,
             rootid: 0,
@@ -481,14 +491,30 @@ impl SecureBits {
     /// Convert to integer
     pub fn to_bits(&self) -> u32 {
         let mut bits = 0u32;
-        if self.keep_caps { bits |= 1 << 4; }
-        if self.keep_caps_locked { bits |= 1 << 5; }
-        if self.no_root { bits |= 1 << 0; }
-        if self.no_root_locked { bits |= 1 << 1; }
-        if self.no_setuid_fixup { bits |= 1 << 2; }
-        if self.no_setuid_fixup_locked { bits |= 1 << 3; }
-        if self.no_cap_ambient_raise { bits |= 1 << 6; }
-        if self.no_cap_ambient_raise_locked { bits |= 1 << 7; }
+        if self.keep_caps {
+            bits |= 1 << 4;
+        }
+        if self.keep_caps_locked {
+            bits |= 1 << 5;
+        }
+        if self.no_root {
+            bits |= 1 << 0;
+        }
+        if self.no_root_locked {
+            bits |= 1 << 1;
+        }
+        if self.no_setuid_fixup {
+            bits |= 1 << 2;
+        }
+        if self.no_setuid_fixup_locked {
+            bits |= 1 << 3;
+        }
+        if self.no_cap_ambient_raise {
+            bits |= 1 << 6;
+        }
+        if self.no_cap_ambient_raise_locked {
+            bits |= 1 << 7;
+        }
         bits
     }
 }
@@ -543,7 +569,8 @@ pub fn set_caps(pid: Pid, caps: ProcessCaps) -> Result<(), CapError> {
 
 /// Check if process has capability
 pub fn capable(pid: Pid, cap: Cap) -> bool {
-    PROCESS_CAPS.read()
+    PROCESS_CAPS
+        .read()
         .get(&pid)
         .map(|c| c.has(cap))
         .unwrap_or(false)
@@ -588,7 +615,9 @@ pub fn sys_capget(hdrp: *const CapUserHeader, datap: *mut CapUserData) -> Result
 
     let header = unsafe { &*hdrp };
     let pid = if header.pid == 0 {
-        crate::process::current().map(|p| p.pid).ok_or(CapError::PermissionDenied)?
+        crate::process::current()
+            .map(|p| p.pid)
+            .ok_or(CapError::PermissionDenied)?
     } else {
         Pid(header.pid as u32)
     };
@@ -615,13 +644,17 @@ pub fn sys_capset(hdrp: *const CapUserHeader, datap: *const CapUserData) -> Resu
     let data = unsafe { &*datap };
 
     let pid = if header.pid == 0 {
-        crate::process::current().map(|p| p.pid).ok_or(CapError::PermissionDenied)?
+        crate::process::current()
+            .map(|p| p.pid)
+            .ok_or(CapError::PermissionDenied)?
     } else {
         Pid(header.pid as u32)
     };
 
     // Can only modify own capabilities without CAP_SETPCAP
-    let current_pid = crate::process::current().map(|p| p.pid).ok_or(CapError::PermissionDenied)?;
+    let current_pid = crate::process::current()
+        .map(|p| p.pid)
+        .ok_or(CapError::PermissionDenied)?;
     if pid != current_pid && !current_has(Cap::Setpcap) {
         return Err(CapError::PermissionDenied);
     }
@@ -718,9 +751,7 @@ pub mod prctl {
             PR_CAP_AMBIENT => {
                 let cap = Cap::from_u32(arg3 as u32).ok_or(CapError::InvalidCapability)?;
                 match arg2 as i32 {
-                    PR_CAP_AMBIENT_IS_SET => {
-                        Ok(if pcaps.ambient.has(cap) { 1 } else { 0 })
-                    }
+                    PR_CAP_AMBIENT_IS_SET => Ok(if pcaps.ambient.has(cap) { 1 } else { 0 }),
                     PR_CAP_AMBIENT_RAISE => {
                         if pcaps.securebits.no_cap_ambient_raise {
                             return Err(CapError::PermissionDenied);
@@ -749,7 +780,10 @@ pub mod prctl {
 
 /// Initialize capability subsystem
 pub fn init() {
-    crate::kprintln!("  Capability system initialized ({} capabilities)", Cap::COUNT);
+    crate::kprintln!(
+        "  Capability system initialized ({} capabilities)",
+        Cap::COUNT
+    );
 }
 
 #[cfg(test)]

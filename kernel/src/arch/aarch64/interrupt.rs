@@ -2,9 +2,9 @@
 //!
 //! Exception vectors, interrupt controller, and IRQ handling.
 
-use spin::Mutex;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
+use spin::Mutex;
 
 /// Exception types
 #[derive(Clone, Copy, Debug)]
@@ -88,10 +88,10 @@ impl From<u8> for ExceptionClass {
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct CpuState {
-    pub x: [u64; 31],  // X0-X30
-    pub sp: u64,       // Stack pointer
-    pub pc: u64,       // Program counter (ELR_EL1)
-    pub pstate: u64,   // Saved PSTATE (SPSR_EL1)
+    pub x: [u64; 31], // X0-X30
+    pub sp: u64,      // Stack pointer
+    pub pc: u64,      // Program counter (ELR_EL1)
+    pub pstate: u64,  // Saved PSTATE (SPSR_EL1)
 }
 
 impl Default for CpuState {
@@ -214,10 +214,7 @@ pub mod gic {
 
             // Configure all interrupts as level-triggered
             for i in (32..num_irqs).step_by(16) {
-                core::ptr::write_volatile(
-                    (gicd + GICD_ICFGR + (i / 4) as usize) as *mut u32,
-                    0,
-                );
+                core::ptr::write_volatile((gicd + GICD_ICFGR + (i / 4) as usize) as *mut u32, 0);
             }
 
             // Enable distributor

@@ -4,23 +4,23 @@
 
 pub mod button;
 pub mod label;
-pub mod textbox;
-pub mod panel;
 pub mod list;
+pub mod panel;
 pub mod scroll;
+pub mod textbox;
 
 pub use button::Button;
 pub use label::Label;
-pub use textbox::TextBox;
-pub use panel::Panel;
 pub use list::ListView;
+pub use panel::Panel;
 pub use scroll::ScrollView;
+pub use textbox::TextBox;
 
 use alloc::boxed::Box;
 
-use crate::gui::{Rect, Color};
 use crate::gui::input::MouseButton;
 use crate::gui::theme::Theme;
+use crate::gui::{Color, Rect};
 
 /// Widget trait
 pub trait Widget: Send + Sync {

@@ -2,10 +2,10 @@
 //!
 //! Piper-style speech synthesis for HubLab IO.
 
-use alloc::string::String;
-use alloc::vec::Vec;
-use alloc::sync::Arc;
 use super::audio::{AudioBuffer, AudioFormat};
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 /// Voice definition
 #[derive(Clone, Debug)]
@@ -35,9 +35,9 @@ pub enum VoiceGender {
 /// Voice quality level
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VoiceQuality {
-    Low,     // Faster, smaller model
-    Medium,  // Balanced
-    High,    // Best quality, larger model
+    Low,    // Faster, smaller model
+    Medium, // Balanced
+    High,   // Best quality, larger model
 }
 
 /// Speech synthesis configuration
@@ -124,7 +124,11 @@ pub trait TextToSpeech: Send + Sync {
     fn synthesize(&self, text: &str, config: &SpeechConfig) -> Result<AudioBuffer, TtsError>;
 
     /// Synthesize SSML
-    fn synthesize_ssml(&self, ssml: &SsmlDocument, config: &SpeechConfig) -> Result<AudioBuffer, TtsError>;
+    fn synthesize_ssml(
+        &self,
+        ssml: &SsmlDocument,
+        config: &SpeechConfig,
+    ) -> Result<AudioBuffer, TtsError>;
 
     /// Get phonemes for text (for lip sync, etc.)
     fn get_phonemes(&self, text: &str) -> Result<Vec<Phoneme>, TtsError>;
@@ -262,7 +266,7 @@ impl PiperTts {
                     _ => {}
                 }
             }
-            phonemes.push(String::from(" "));  // Word boundary
+            phonemes.push(String::from(" ")); // Word boundary
         }
 
         phonemes
@@ -272,8 +276,9 @@ impl PiperTts {
     fn phonemes_to_audio(&self, _phonemes: &[String], config: &SpeechConfig) -> Vec<i16> {
         // In real implementation, this would run the neural vocoder
         // For now, generate silence
-        let duration_ms = 1000;  // 1 second placeholder
-        let sample_count = (self.sample_rate as f32 * duration_ms as f32 / 1000.0 * config.rate) as usize;
+        let duration_ms = 1000; // 1 second placeholder
+        let sample_count =
+            (self.sample_rate as f32 * duration_ms as f32 / 1000.0 * config.rate) as usize;
 
         alloc::vec![0i16; sample_count]
     }
@@ -312,7 +317,8 @@ impl TextToSpeech for PiperTts {
         let samples = self.phonemes_to_audio(&phonemes, config);
 
         // Apply volume
-        let samples: Vec<i16> = samples.iter()
+        let samples: Vec<i16> = samples
+            .iter()
             .map(|&s| ((s as f32) * config.volume).clamp(-32768.0, 32767.0) as i16)
             .collect();
 
@@ -326,10 +332,15 @@ impl TextToSpeech for PiperTts {
         })
     }
 
-    fn synthesize_ssml(&self, ssml: &SsmlDocument, config: &SpeechConfig) -> Result<AudioBuffer, TtsError> {
+    fn synthesize_ssml(
+        &self,
+        ssml: &SsmlDocument,
+        config: &SpeechConfig,
+    ) -> Result<AudioBuffer, TtsError> {
         // Simple SSML parsing - extract text content
         // Real implementation would parse full SSML
-        let text = ssml.content
+        let text = ssml
+            .content
             .replace("<speak>", "")
             .replace("</speak>", "")
             .replace(|c: char| c == '<', " ");
@@ -356,7 +367,7 @@ impl TextToSpeech for PiperTts {
 
         let mut phonemes = Vec::new();
         let mut current_ms = 0u32;
-        let phoneme_duration = 80u32;  // Average phoneme duration
+        let phoneme_duration = 80u32; // Average phoneme duration
 
         for symbol in phoneme_strings {
             if symbol != " " {

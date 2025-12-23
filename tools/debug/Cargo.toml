@@ -1,0 +1,9 @@
+[package]
+name = "hublab-tools-debug"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Debug Tools for HubLab IO"
+
+[dependencies]

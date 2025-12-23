@@ -213,22 +213,14 @@ pub fn dmb() {
 /// Invalidate TLB
 pub fn tlb_invalidate_all() {
     unsafe {
-        asm!(
-            "dsb ishst",
-            "tlbi vmalle1is",
-            "dsb ish",
-            "isb",
-        );
+        asm!("dsb ishst", "tlbi vmalle1is", "dsb ish", "isb",);
     }
 }
 
 /// Invalidate instruction cache
 pub fn icache_invalidate_all() {
     unsafe {
-        asm!(
-            "ic iallu",
-            "isb",
-        );
+        asm!("ic iallu", "isb",);
     }
 }
 
@@ -236,8 +228,7 @@ pub fn icache_invalidate_all() {
 pub fn dcache_invalidate_all() {
     unsafe {
         asm!(
-            "dsb sy",
-            // Would need a loop over cache levels
+            "dsb sy", // Would need a loop over cache levels
             "isb",
         );
     }

@@ -5,11 +5,11 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 use alloc::vec;
-use core::sync::atomic::{AtomicU64, AtomicBool, Ordering};
+use alloc::vec::Vec;
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use super::{NodeId, NodeInfo, NodeStatus, new_node_id};
+use super::{new_node_id, NodeId, NodeInfo, NodeStatus};
 
 /// Service type for mDNS discovery
 pub const MDNS_SERVICE_TYPE: &str = "_hublabio._tcp.local";
@@ -42,17 +42,11 @@ pub enum DiscoveryMessage {
         load: f32,
     },
     /// Query for other nodes
-    Query {
-        from: NodeId,
-    },
+    Query { from: NodeId },
     /// Response to query
-    QueryResponse {
-        nodes: Vec<NodeInfo>,
-    },
+    QueryResponse { nodes: Vec<NodeInfo> },
     /// Node leaving cluster
-    Leave {
-        node_id: NodeId,
-    },
+    Leave { node_id: NodeId },
 }
 
 /// Cluster discovery service
@@ -177,9 +171,19 @@ impl ClusterDiscovery {
     }
 
     /// Process received discovery message
-    pub fn process_message(&mut self, msg: DiscoveryMessage, current_time: u64) -> Option<DiscoveryMessage> {
+    pub fn process_message(
+        &mut self,
+        msg: DiscoveryMessage,
+        current_time: u64,
+    ) -> Option<DiscoveryMessage> {
         match msg {
-            DiscoveryMessage::Announce { node_id, address, port, memory, compute } => {
+            DiscoveryMessage::Announce {
+                node_id,
+                address,
+                port,
+                memory,
+                compute,
+            } => {
                 if node_id != self.local_node.id {
                     let info = NodeInfo {
                         id: node_id,
@@ -192,13 +196,16 @@ impl ClusterDiscovery {
                         layers: None,
                     };
 
-                    self.peers.insert(node_id, PeerInfo {
-                        info,
-                        connected: false,
-                        latency_us: 0,
-                        last_success: current_time,
-                        error_count: 0,
-                    });
+                    self.peers.insert(
+                        node_id,
+                        PeerInfo {
+                            info,
+                            connected: false,
+                            latency_us: 0,
+                            last_success: current_time,
+                            error_count: 0,
+                        },
+                    );
                     self.last_seen.insert(node_id, current_time);
 
                     // Respond with our announce
@@ -206,7 +213,12 @@ impl ClusterDiscovery {
                 }
             }
 
-            DiscoveryMessage::Heartbeat { node_id, status, available_memory, load: _ } => {
+            DiscoveryMessage::Heartbeat {
+                node_id,
+                status,
+                available_memory,
+                load: _,
+            } => {
                 if let Some(peer) = self.peers.get_mut(&node_id) {
                     peer.info.status = status;
                     peer.info.available_memory = available_memory;
@@ -217,9 +229,8 @@ impl ClusterDiscovery {
 
             DiscoveryMessage::Query { from } => {
                 if from != self.local_node.id {
-                    let nodes: Vec<NodeInfo> = self.peers.values()
-                        .map(|p| p.info.clone())
-                        .collect();
+                    let nodes: Vec<NodeInfo> =
+                        self.peers.values().map(|p| p.info.clone()).collect();
                     return Some(DiscoveryMessage::QueryResponse { nodes });
                 }
             }
@@ -227,13 +238,16 @@ impl ClusterDiscovery {
             DiscoveryMessage::QueryResponse { nodes } => {
                 for info in nodes {
                     if info.id != self.local_node.id && !self.peers.contains_key(&info.id) {
-                        self.peers.insert(info.id, PeerInfo {
-                            info,
-                            connected: false,
-                            latency_us: 0,
-                            last_success: current_time,
-                            error_count: 0,
-                        });
+                        self.peers.insert(
+                            info.id,
+                            PeerInfo {
+                                info,
+                                connected: false,
+                                latency_us: 0,
+                                last_success: current_time,
+                                error_count: 0,
+                            },
+                        );
                     }
                 }
             }
@@ -301,7 +315,9 @@ impl ClusterDiscovery {
 
     /// Get total cluster memory
     pub fn cluster_memory(&self) -> usize {
-        let peer_memory: usize = self.peers.values()
+        let peer_memory: usize = self
+            .peers
+            .values()
             .filter(|p| p.connected)
             .map(|p| p.info.memory)
             .sum();
@@ -310,7 +326,9 @@ impl ClusterDiscovery {
 
     /// Get total cluster compute (TFLOPS)
     pub fn cluster_compute(&self) -> f32 {
-        let peer_compute: f32 = self.peers.values()
+        let peer_compute: f32 = self
+            .peers
+            .values()
             .filter(|p| p.connected)
             .map(|p| p.info.compute)
             .sum();
@@ -331,13 +349,16 @@ impl ClusterDiscovery {
             layers: None,
         };
 
-        self.peers.insert(id, PeerInfo {
-            info,
-            connected: false,
-            latency_us: 0,
-            last_success: 0,
-            error_count: 0,
-        });
+        self.peers.insert(
+            id,
+            PeerInfo {
+                info,
+                connected: false,
+                latency_us: 0,
+                last_success: 0,
+                error_count: 0,
+            },
+        );
     }
 
     /// Update local available memory
@@ -484,7 +505,8 @@ impl ClusterHealth {
             return 1.0; // Single node is healthy
         }
 
-        let connected: usize = discovery.peers()
+        let connected: usize = discovery
+            .peers()
             .filter(|p| p.connected && p.info.status != NodeStatus::Error)
             .count();
 

@@ -5,7 +5,7 @@
 use core::ptr::{read_volatile, write_volatile};
 use spin::Mutex;
 
-use super::{PAGE_SIZE, PAGE_SHIFT, PageFlags, PhysFrame, VirtPage, allocate_frame};
+use super::{allocate_frame, PageFlags, PhysFrame, VirtPage, PAGE_SHIFT, PAGE_SIZE};
 
 /// Number of entries per page table
 const ENTRIES_PER_TABLE: usize = 512;
@@ -132,10 +132,8 @@ impl PageTable {
                 table.clear();
             }
 
-            self.entries[index] = PageTableEntry::new(
-                frame,
-                PageFlags::PRESENT | PageFlags::WRITABLE,
-            );
+            self.entries[index] =
+                PageTableEntry::new(frame, PageFlags::PRESENT | PageFlags::WRITABLE);
         }
 
         self.next_table_mut(index)
@@ -203,11 +201,14 @@ impl AddressSpace {
         let root = unsafe { &mut *self.root };
 
         // Walk/create page tables
-        let l1 = root.next_table_create(l0_index)
+        let l1 = root
+            .next_table_create(l0_index)
             .ok_or("Failed to create L1 table")?;
-        let l2 = l1.next_table_create(l1_index)
+        let l2 = l1
+            .next_table_create(l1_index)
             .ok_or("Failed to create L2 table")?;
-        let l3 = l2.next_table_create(l2_index)
+        let l3 = l2
+            .next_table_create(l2_index)
             .ok_or("Failed to create L3 table")?;
 
         // Set the final entry
@@ -303,7 +304,12 @@ pub fn init_kernel_space() {
 }
 
 /// Map kernel memory
-pub fn kernel_map(virt: usize, phys: usize, size: usize, flags: PageFlags) -> Result<(), &'static str> {
+pub fn kernel_map(
+    virt: usize,
+    phys: usize,
+    size: usize,
+    flags: PageFlags,
+) -> Result<(), &'static str> {
     let mut space = KERNEL_SPACE.lock();
     let space = space.as_mut().ok_or("Kernel space not initialized")?;
 

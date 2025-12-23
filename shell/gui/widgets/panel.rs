@@ -1,8 +1,8 @@
 //! Panel Widget
 
-use crate::gui::{Rect, Color};
-use crate::gui::theme::Theme;
 use super::Widget;
+use crate::gui::theme::Theme;
+use crate::gui::{Color, Rect};
 
 /// Panel widget (container with background)
 pub struct Panel {

@@ -4,9 +4,9 @@
 //! All service communication happens through these IPC mechanisms.
 
 use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
 use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 use spin::{Mutex, RwLock};
 
@@ -163,7 +163,12 @@ impl ChannelEndpoint {
     }
 
     /// Send with flags
-    pub fn send_with_flags(&self, msg_type: u32, flags: u32, payload: &[u8]) -> Result<(), IpcError> {
+    pub fn send_with_flags(
+        &self,
+        msg_type: u32,
+        flags: u32,
+        payload: &[u8],
+    ) -> Result<(), IpcError> {
         let header = MessageHeader {
             msg_type,
             flags,

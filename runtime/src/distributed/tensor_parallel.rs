@@ -4,8 +4,8 @@
 //! across multiple devices. Supports column and row parallelism
 //! for attention and feed-forward layers.
 
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::cmp;
 
 /// Parallelism strategy
@@ -41,7 +41,10 @@ pub struct TensorPartition {
 impl TensorPartition {
     /// Create column-parallel partition
     pub fn column_parallel(shape: &[usize], rank: usize, world_size: usize) -> Self {
-        assert!(shape.len() >= 2, "Need at least 2D tensor for column parallelism");
+        assert!(
+            shape.len() >= 2,
+            "Need at least 2D tensor for column parallelism"
+        );
         let split_dim = shape.len() - 1; // Last dimension
         let global_cols = shape[split_dim];
 
@@ -65,7 +68,10 @@ impl TensorPartition {
 
     /// Create row-parallel partition
     pub fn row_parallel(shape: &[usize], rank: usize, world_size: usize) -> Self {
-        assert!(shape.len() >= 2, "Need at least 2D tensor for row parallelism");
+        assert!(
+            shape.len() >= 2,
+            "Need at least 2D tensor for row parallelism"
+        );
         let split_dim = shape.len() - 2; // Second-to-last dimension
         let global_rows = shape[split_dim];
 
@@ -377,7 +383,10 @@ impl FFNParallel {
     /// Get local intermediate range
     pub fn local_range(&self) -> (usize, usize) {
         let start = self.rank * self.intermediate_per_device;
-        let end = cmp::min(start + self.intermediate_per_device, self.total_intermediate);
+        let end = cmp::min(
+            start + self.intermediate_per_device,
+            self.total_intermediate,
+        );
         (start, end)
     }
 
@@ -445,14 +454,14 @@ pub fn get_layer_comm_pattern(
         ("qkv_proj", ParallelismStrategy::ColumnParallel) => {
             (CommPattern::None, CommPattern::AllGather { dim: 2 })
         }
-        ("gate_proj", ParallelismStrategy::ColumnParallel) |
-        ("up_proj", ParallelismStrategy::ColumnParallel) => {
+        ("gate_proj", ParallelismStrategy::ColumnParallel)
+        | ("up_proj", ParallelismStrategy::ColumnParallel) => {
             (CommPattern::None, CommPattern::AllGather { dim: 1 })
         }
 
         // Row parallel: scatter input, all-reduce output
-        ("o_proj", ParallelismStrategy::RowParallel) |
-        ("down_proj", ParallelismStrategy::RowParallel) => {
+        ("o_proj", ParallelismStrategy::RowParallel)
+        | ("down_proj", ParallelismStrategy::RowParallel) => {
             (CommPattern::Scatter { dim: 1 }, CommPattern::AllReduceSum)
         }
 

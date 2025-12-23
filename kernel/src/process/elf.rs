@@ -2,8 +2,8 @@
 //!
 //! Loads ELF64 executables for ARM64.
 
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 /// ELF magic number
 pub const ELF_MAGIC: [u8; 4] = [0x7F, b'E', b'L', b'F'];
@@ -360,15 +360,15 @@ pub fn get_type(data: &[u8]) -> Option<u16> {
 
 /// Dynamic linking information parsed from PT_DYNAMIC
 pub struct DynamicInfo {
-    pub rela: u64,          // DT_RELA
-    pub relasz: u64,        // DT_RELASZ
-    pub relaent: u64,       // DT_RELAENT
-    pub jmprel: u64,        // DT_JMPREL
-    pub pltrelsz: u64,      // DT_PLTRELSZ
-    pub symtab: u64,        // DT_SYMTAB
-    pub strtab: u64,        // DT_STRTAB
-    pub init: u64,          // DT_INIT
-    pub fini: u64,          // DT_FINI
+    pub rela: u64,     // DT_RELA
+    pub relasz: u64,   // DT_RELASZ
+    pub relaent: u64,  // DT_RELAENT
+    pub jmprel: u64,   // DT_JMPREL
+    pub pltrelsz: u64, // DT_PLTRELSZ
+    pub symtab: u64,   // DT_SYMTAB
+    pub strtab: u64,   // DT_STRTAB
+    pub init: u64,     // DT_INIT
+    pub fini: u64,     // DT_FINI
 }
 
 impl Default for DynamicInfo {
@@ -409,9 +409,7 @@ pub fn parse_dynamic(data: &[u8], header: &Elf64Header, base: usize) -> Option<D
 
         for i in 0..num_entries {
             let entry_offset = dyn_offset + i * entry_size;
-            let dyn_entry = unsafe {
-                &*(data.as_ptr().add(entry_offset) as *const Elf64Dyn)
-            };
+            let dyn_entry = unsafe { &*(data.as_ptr().add(entry_offset) as *const Elf64Dyn) };
 
             match dyn_entry.d_tag {
                 DT_NULL => break,
@@ -629,9 +627,8 @@ pub fn load_into_process(
                     // For now, assume it's mapped
 
                     // Copy data from ELF file
-                    let page_data = unsafe {
-                        core::slice::from_raw_parts_mut(paddr as *mut u8, PAGE_SIZE)
-                    };
+                    let page_data =
+                        unsafe { core::slice::from_raw_parts_mut(paddr as *mut u8, PAGE_SIZE) };
 
                     // Zero the page first
                     page_data.fill(0);
@@ -658,15 +655,27 @@ pub fn load_into_process(
                 });
 
                 // Add to process memory regions
-                process.memory.lock().regions.push(crate::process::MemoryRegion {
-                    start: page_start,
-                    end: page_end,
-                    flags: crate::process::MemoryFlags::READ
-                        | if phdr.p_flags & PF_W != 0 { crate::process::MemoryFlags::WRITE } else { crate::process::MemoryFlags::empty() }
-                        | if phdr.p_flags & PF_X != 0 { crate::process::MemoryFlags::EXEC } else { crate::process::MemoryFlags::empty() }
-                        | crate::process::MemoryFlags::USER,
-                    name: String::from("[elf]"),
-                });
+                process
+                    .memory
+                    .lock()
+                    .regions
+                    .push(crate::process::MemoryRegion {
+                        start: page_start,
+                        end: page_end,
+                        flags: crate::process::MemoryFlags::READ
+                            | if phdr.p_flags & PF_W != 0 {
+                                crate::process::MemoryFlags::WRITE
+                            } else {
+                                crate::process::MemoryFlags::empty()
+                            }
+                            | if phdr.p_flags & PF_X != 0 {
+                                crate::process::MemoryFlags::EXEC
+                            } else {
+                                crate::process::MemoryFlags::empty()
+                            }
+                            | crate::process::MemoryFlags::USER,
+                        name: String::from("[elf]"),
+                    });
             }
             PT_INTERP => {
                 let start = phdr.p_offset as usize;
@@ -708,7 +717,11 @@ pub fn load_into_process(
 }
 
 /// Build auxiliary vector for new process
-pub fn build_auxv(info: &ElfInfo, stack_ptr: &mut usize, random_bytes: &[u8; 16]) -> Vec<(u64, u64)> {
+pub fn build_auxv(
+    info: &ElfInfo,
+    stack_ptr: &mut usize,
+    random_bytes: &[u8; 16],
+) -> Vec<(u64, u64)> {
     let mut auxv = Vec::new();
 
     // AT_PHDR - Program headers address

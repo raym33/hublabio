@@ -5,7 +5,7 @@
 use alloc::vec::Vec;
 use spin::Mutex;
 
-use super::{MacAddress, PacketBuffer, NetError};
+use super::{MacAddress, NetError, PacketBuffer};
 
 /// Ethernet frame header size
 pub const HEADER_SIZE: usize = 14;
@@ -68,9 +68,7 @@ pub fn parse(data: &[u8]) -> Result<(EthernetHeader, &[u8]), NetError> {
         return Err(NetError::InvalidPacket);
     }
 
-    let header = unsafe {
-        core::ptr::read_unaligned(data.as_ptr() as *const EthernetHeader)
-    };
+    let header = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const EthernetHeader) };
 
     let payload = &data[HEADER_SIZE..];
 
@@ -157,19 +155,19 @@ struct DmaDescriptor {
     length_status: u32,
 }
 
+/// BCM GENET register offsets
+mod genet_regs {
+    pub const SYS_REV_CTRL: usize = 0x00;
+    pub const SYS_PORT_CTRL: usize = 0x04;
+    pub const UMAC_CMD: usize = 0x808;
+    pub const UMAC_MAC0: usize = 0x80C;
+    pub const UMAC_MAC1: usize = 0x810;
+    pub const MDIO_CMD: usize = 0xE14;
+}
+
 impl BcmGenet {
     /// BCM GENET base address for Pi 4
     pub const BASE_BCM2711: usize = 0xFD580000;
-
-    /// Register offsets
-    mod regs {
-        pub const SYS_REV_CTRL: usize = 0x00;
-        pub const SYS_PORT_CTRL: usize = 0x04;
-        pub const UMAC_CMD: usize = 0x808;
-        pub const UMAC_MAC0: usize = 0x80C;
-        pub const UMAC_MAC1: usize = 0x810;
-        pub const MDIO_CMD: usize = 0xE14;
-    }
 
     /// Create a new GENET driver
     pub fn new(base: usize) -> Self {
@@ -194,9 +192,7 @@ impl BcmGenet {
 
     /// Read register
     fn read_reg(&self, offset: usize) -> u32 {
-        unsafe {
-            core::ptr::read_volatile((self.base + offset) as *const u32)
-        }
+        unsafe { core::ptr::read_volatile((self.base + offset) as *const u32) }
     }
 
     /// Write register
@@ -314,7 +310,11 @@ impl EthernetDriver for BcmGenet {
     }
 
     fn link_speed(&self) -> u32 {
-        if self.link_up { 1000 } else { 0 }
+        if self.link_up {
+            1000
+        } else {
+            0
+        }
     }
 }
 

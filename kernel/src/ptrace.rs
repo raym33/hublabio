@@ -93,7 +93,7 @@ pub mod regset {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UserRegs {
-    pub regs: [u64; 31],  // x0-x30
+    pub regs: [u64; 31], // x0-x30
     pub sp: u64,
     pub pc: u64,
     pub pstate: u64,
@@ -182,14 +182,14 @@ pub enum PtraceError {
 impl PtraceError {
     pub fn to_errno(&self) -> i32 {
         match self {
-            PtraceError::NoProcess => -3,      // ESRCH
-            PtraceError::Permission => -1,      // EPERM
-            PtraceError::Invalid => -22,        // EINVAL
-            PtraceError::NotAttached => -3,     // ESRCH
-            PtraceError::AlreadyAttached => -16,// EBUSY
-            PtraceError::Fault => -14,          // EFAULT
-            PtraceError::NotStopped => -3,      // ESRCH
-            PtraceError::Busy => -16,           // EBUSY
+            PtraceError::NoProcess => -3,        // ESRCH
+            PtraceError::Permission => -1,       // EPERM
+            PtraceError::Invalid => -22,         // EINVAL
+            PtraceError::NotAttached => -3,      // ESRCH
+            PtraceError::AlreadyAttached => -16, // EBUSY
+            PtraceError::Fault => -14,           // EFAULT
+            PtraceError::NotStopped => -3,       // ESRCH
+            PtraceError::Busy => -16,            // EBUSY
         }
     }
 }
@@ -279,7 +279,8 @@ pub fn traceme() -> Result<(), PtraceError> {
     TRACEES.write().insert(pid, state);
 
     // Add to tracer's children list
-    TRACER_CHILDREN.write()
+    TRACER_CHILDREN
+        .write()
         .entry(ppid)
         .or_insert_with(Vec::new)
         .push(pid);
@@ -312,7 +313,8 @@ pub fn attach(pid: Pid) -> Result<(), PtraceError> {
     let state = PtraceState::new(tracer);
     TRACEES.write().insert(pid, state);
 
-    TRACER_CHILDREN.write()
+    TRACER_CHILDREN
+        .write()
         .entry(tracer)
         .or_insert_with(Vec::new)
         .push(pid);
@@ -345,7 +347,8 @@ pub fn seize(pid: Pid, options: u32) -> Result<(), PtraceError> {
     state.options.store(options, Ordering::SeqCst);
     TRACEES.write().insert(pid, state);
 
-    TRACER_CHILDREN.write()
+    TRACER_CHILDREN
+        .write()
         .entry(tracer)
         .or_insert_with(Vec::new)
         .push(pid);
@@ -491,9 +494,7 @@ pub fn peek_data(pid: Pid, addr: usize) -> Result<usize, PtraceError> {
     validate_tracee_address(pid, addr, core::mem::size_of::<usize>())?;
 
     // Read from tracee's address space (address now validated)
-    let data = unsafe {
-        (addr as *const usize).read_volatile()
-    };
+    let data = unsafe { (addr as *const usize).read_volatile() };
 
     Ok(data)
 }
@@ -740,11 +741,12 @@ pub fn on_syscall(pid: Pid, syscall_nr: u32, entry: bool) {
             state.stopped.store(true, Ordering::SeqCst);
 
             // Create trap signal
-            let signal = if state.options.load(Ordering::SeqCst) & options::PTRACE_O_TRACESYSGOOD != 0 {
-                Signal::SIGTRAP // Would set 0x80 bit
-            } else {
-                Signal::SIGTRAP
-            };
+            let signal =
+                if state.options.load(Ordering::SeqCst) & options::PTRACE_O_TRACESYSGOOD != 0 {
+                    Signal::SIGTRAP // Would set 0x80 bit
+                } else {
+                    Signal::SIGTRAP
+                };
 
             *state.stop_signal.lock() = Some(signal);
             crate::scheduler::wake(state.tracer);
@@ -809,9 +811,7 @@ pub fn on_exit(pid: Pid) {
 
 /// Called when tracer exits
 pub fn on_tracer_exit(tracer: Pid) {
-    let children: Vec<Pid> = TRACER_CHILDREN.write()
-        .remove(&tracer)
-        .unwrap_or_default();
+    let children: Vec<Pid> = TRACER_CHILDREN.write().remove(&tracer).unwrap_or_default();
 
     for child in children {
         // Option: kill or detach children
@@ -827,7 +827,8 @@ pub fn on_tracer_exit(tracer: Pid) {
 
 /// Check if process is traced and stopped
 pub fn is_stopped(pid: Pid) -> bool {
-    TRACEES.read()
+    TRACEES
+        .read()
         .get(&pid)
         .map(|s| s.stopped.load(Ordering::SeqCst))
         .unwrap_or(false)
@@ -856,19 +857,35 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
         request::PTRACE_ATTACH => attach(target_pid),
         request::PTRACE_SEIZE => seize(target_pid, data as u32),
         request::PTRACE_DETACH => {
-            let sig = if data != 0 { Signal::from_num(data as i32) } else { None };
+            let sig = if data != 0 {
+                Signal::from_num(data as i32)
+            } else {
+                None
+            };
             detach(target_pid, sig)
         }
         request::PTRACE_CONT => {
-            let sig = if data != 0 { Signal::from_num(data as i32) } else { None };
+            let sig = if data != 0 {
+                Signal::from_num(data as i32)
+            } else {
+                None
+            };
             cont(target_pid, sig)
         }
         request::PTRACE_SINGLESTEP => {
-            let sig = if data != 0 { Signal::from_num(data as i32) } else { None };
+            let sig = if data != 0 {
+                Signal::from_num(data as i32)
+            } else {
+                None
+            };
             singlestep(target_pid, sig)
         }
         request::PTRACE_SYSCALL => {
-            let sig = if data != 0 { Signal::from_num(data as i32) } else { None };
+            let sig = if data != 0 {
+                Signal::from_num(data as i32)
+            } else {
+                None
+            };
             syscall(target_pid, sig)
         }
         request::PTRACE_KILL => kill_tracee(target_pid),
@@ -879,9 +896,7 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
                 Err(e) => e.to_errno() as isize,
             };
         }
-        request::PTRACE_POKEDATA | request::PTRACE_POKETEXT => {
-            poke_data(target_pid, addr, data)
-        }
+        request::PTRACE_POKEDATA | request::PTRACE_POKETEXT => poke_data(target_pid, addr, data),
         request::PTRACE_GETREGS => {
             // Validate output pointer before writing
             if let Err(e) = validate_user_ptr(data, core::mem::size_of::<UserRegs>()) {
@@ -928,9 +943,7 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
             let fpregs = unsafe { &*(data as *const UserFpRegs) };
             setfpregs(target_pid, fpregs)
         }
-        request::PTRACE_SETOPTIONS => {
-            setoptions(target_pid, data as u32)
-        }
+        request::PTRACE_SETOPTIONS => setoptions(target_pid, data as u32),
         request::PTRACE_GETEVENTMSG => {
             // Validate output pointer before writing
             if let Err(e) = validate_user_ptr(data, core::mem::size_of::<u32>()) {
@@ -938,7 +951,9 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
             }
             match geteventmsg(target_pid) {
                 Ok(msg) => {
-                    unsafe { *(data as *mut u32) = msg; }
+                    unsafe {
+                        *(data as *mut u32) = msg;
+                    }
                     return 0;
                 }
                 Err(e) => return e.to_errno() as isize,

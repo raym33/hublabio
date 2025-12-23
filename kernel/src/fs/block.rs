@@ -4,8 +4,8 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use spin::{Mutex, RwLock};
 
 use super::BlockDevice;
@@ -133,8 +133,8 @@ impl SdCardBlock {
     /// Create SD card block device from existing controller
     pub fn from_controller(controller_id: u32) -> Result<Self, VfsError> {
         // Get card info from controller
-        let (_, total_sectors, _) = crate::drivers::sdmmc::get_card_info(controller_id)
-            .ok_or(VfsError::IoError)?;
+        let (_, total_sectors, _) =
+            crate::drivers::sdmmc::get_card_info(controller_id).ok_or(VfsError::IoError)?;
 
         Ok(Self {
             controller_id,
@@ -146,12 +146,11 @@ impl SdCardBlock {
     /// Initialize SD card at given base address
     pub fn new(base: usize) -> Result<Self, VfsError> {
         // Register controller
-        let controller_id = crate::drivers::sdmmc::register_controller(base)
-            .map_err(|_| VfsError::IoError)?;
+        let controller_id =
+            crate::drivers::sdmmc::register_controller(base).map_err(|_| VfsError::IoError)?;
 
         // Detect card
-        crate::drivers::sdmmc::detect_card(controller_id)
-            .map_err(|_| VfsError::IoError)?;
+        crate::drivers::sdmmc::detect_card(controller_id).map_err(|_| VfsError::IoError)?;
 
         Self::from_controller(controller_id)
     }
@@ -206,7 +205,12 @@ impl BlockDevice for SdCardBlock {
 /// Read multiple blocks efficiently
 impl SdCardBlock {
     /// Read multiple blocks at once
-    pub fn read_blocks(&self, start_block: u64, count: u32, buf: &mut [u8]) -> Result<(), VfsError> {
+    pub fn read_blocks(
+        &self,
+        start_block: u64,
+        count: u32,
+        buf: &mut [u8],
+    ) -> Result<(), VfsError> {
         if start_block + count as u64 > self.total_blocks {
             return Err(VfsError::IoError);
         }
@@ -368,15 +372,9 @@ pub fn parse_gpt(device: &dyn BlockDevice) -> Result<Vec<Partition>, VfsError> {
         return Err(VfsError::InvalidPath);
     }
 
-    let partition_entry_lba = u64::from_le_bytes(
-        header[72..80].try_into().unwrap()
-    );
-    let num_entries = u32::from_le_bytes(
-        header[80..84].try_into().unwrap()
-    );
-    let entry_size = u32::from_le_bytes(
-        header[84..88].try_into().unwrap()
-    ) as usize;
+    let partition_entry_lba = u64::from_le_bytes(header[72..80].try_into().unwrap());
+    let num_entries = u32::from_le_bytes(header[80..84].try_into().unwrap());
+    let entry_size = u32::from_le_bytes(header[84..88].try_into().unwrap()) as usize;
 
     let mut partitions = Vec::new();
 
@@ -759,8 +757,12 @@ pub fn probe_partitions(device_name: &str) -> Result<usize, VfsError> {
         )?);
 
         register(&part_name, part_dev);
-        crate::kinfo!("  Partition {}: {} sectors starting at LBA {}",
-                     part_name, part.size_sectors, part.start_lba);
+        crate::kinfo!(
+            "  Partition {}: {} sectors starting at LBA {}",
+            part_name,
+            part.size_sectors,
+            part.start_lba
+        );
     }
 
     Ok(count)

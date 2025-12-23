@@ -2,10 +2,10 @@
 
 use alloc::string::String;
 
-use crate::gui::{Rect, Color};
+use super::Widget;
 use crate::gui::input::MouseButton;
 use crate::gui::theme::Theme;
-use super::Widget;
+use crate::gui::{Color, Rect};
 
 /// TextBox widget for text input
 pub struct TextBox {
@@ -193,7 +193,11 @@ impl Widget for TextBox {
 
         let mut cx = text_x;
         for (i, c) in display_text.chars().enumerate() {
-            let display_char = if self.password && !self.text.is_empty() { '*' } else { c };
+            let display_char = if self.password && !self.text.is_empty() {
+                '*'
+            } else {
+                c
+            };
 
             for dy in 0..char_height {
                 for dx in 0..6 {
@@ -310,9 +314,7 @@ fn get_char_pixel(c: char, x: u32, y: u32) -> bool {
             let border_y = y == 0 || y == 9;
             border_x || border_y
         }
-        '*' => {
-            (y >= 2 && y <= 6) && (x >= 1 && x <= 4)
-        }
+        '*' => (y >= 2 && y <= 6) && (x >= 1 && x <= 4),
         ' ' => false,
         _ => {
             let border_x = x == 0 || x == 5;

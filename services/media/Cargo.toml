@@ -1,0 +1,9 @@
+[package]
+name = "hublab-service-media"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Media Service for HubLab IO"
+
+[dependencies]

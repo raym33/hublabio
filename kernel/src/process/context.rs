@@ -29,22 +29,17 @@ pub unsafe extern "C" fn context_save(ctx: *mut CpuContext) {
         "stp x26, x27, [x0, #208]",
         "stp x28, x29, [x0, #224]",
         "str x30, [x0, #240]",
-
         // Save SP
         "mov x1, sp",
         "str x1, [x0, #248]",
-
         // Save PC (return address)
         "str x30, [x0, #256]",
-
         // Save PSTATE (SPSR_EL1)
         "mrs x1, spsr_el1",
         "str x1, [x0, #264]",
-
         // Save TPIDR_EL0
         "mrs x1, tpidr_el0",
         "str x1, [x0, #272]",
-
         "ret",
         options(noreturn)
     );
@@ -61,19 +56,15 @@ pub unsafe extern "C" fn context_restore(ctx: *const CpuContext) -> ! {
         // Restore TPIDR_EL0
         "ldr x1, [x0, #272]",
         "msr tpidr_el0, x1",
-
         // Restore PSTATE
         "ldr x1, [x0, #264]",
         "msr spsr_el1, x1",
-
         // Restore PC to ELR_EL1
         "ldr x1, [x0, #256]",
         "msr elr_el1, x1",
-
         // Restore SP
         "ldr x1, [x0, #248]",
         "mov sp, x1",
-
         // Restore general purpose registers
         "ldp x28, x29, [x0, #224]",
         "ldr x30, [x0, #240]",
@@ -91,7 +82,6 @@ pub unsafe extern "C" fn context_restore(ctx: *const CpuContext) -> ! {
         "ldp x4, x5, [x0, #32]",
         "ldp x2, x3, [x0, #16]",
         "ldp x0, x1, [x0, #0]",
-
         // Return from exception
         "eret",
         options(noreturn)
@@ -147,12 +137,7 @@ unsafe fn context_save_inline(ctx: *mut CpuContext) {
 }
 
 /// Initialize a new context for a thread
-pub fn init_context(
-    ctx: &mut CpuContext,
-    entry: usize,
-    stack: usize,
-    arg: usize,
-) {
+pub fn init_context(ctx: &mut CpuContext, entry: usize, stack: usize, arg: usize) {
     // Clear all registers
     *ctx = CpuContext::default();
 
@@ -171,12 +156,7 @@ pub fn init_context(
 }
 
 /// Initialize a kernel thread context
-pub fn init_kernel_context(
-    ctx: &mut CpuContext,
-    entry: usize,
-    stack: usize,
-    arg: usize,
-) {
+pub fn init_kernel_context(ctx: &mut CpuContext, entry: usize, stack: usize, arg: usize) {
     // Clear all registers
     *ctx = CpuContext::default();
 

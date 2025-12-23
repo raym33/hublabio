@@ -1,0 +1,9 @@
+[package]
+name = "hublab-apps-system"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "System Applications for HubLab IO"
+
+[dependencies]

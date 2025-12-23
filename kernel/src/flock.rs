@@ -23,17 +23,17 @@ pub enum LockType {
 
 /// flock operation flags
 pub mod flock_ops {
-    pub const LOCK_SH: i32 = 1;  // Shared lock
-    pub const LOCK_EX: i32 = 2;  // Exclusive lock
-    pub const LOCK_NB: i32 = 4;  // Non-blocking
-    pub const LOCK_UN: i32 = 8;  // Unlock
+    pub const LOCK_SH: i32 = 1; // Shared lock
+    pub const LOCK_EX: i32 = 2; // Exclusive lock
+    pub const LOCK_NB: i32 = 4; // Non-blocking
+    pub const LOCK_UN: i32 = 8; // Unlock
 }
 
 /// fcntl lock command
 pub mod fcntl_cmd {
-    pub const F_GETLK: i32 = 5;   // Get lock
-    pub const F_SETLK: i32 = 6;   // Set lock (non-blocking)
-    pub const F_SETLKW: i32 = 7;  // Set lock (blocking)
+    pub const F_GETLK: i32 = 5; // Get lock
+    pub const F_SETLK: i32 = 6; // Set lock (non-blocking)
+    pub const F_SETLKW: i32 = 7; // Set lock (blocking)
 }
 
 /// File lock (for fcntl byte-range locks)
@@ -125,9 +125,7 @@ pub fn flock(inode: u64, operation: i32) -> Result<(), LockError> {
 
     let non_blocking = operation & flock_ops::LOCK_NB != 0;
 
-    let pid = crate::process::current()
-        .map(|p| p.pid)
-        .unwrap_or(Pid(0));
+    let pid = crate::process::current().map(|p| p.pid).unwrap_or(Pid(0));
 
     loop {
         let result = try_flock(inode, lock_type, pid);
@@ -202,9 +200,7 @@ fn try_flock(inode: u64, lock_type: LockType, pid: Pid) -> Result<(), LockError>
 
 /// Apply fcntl lock (byte-range)
 pub fn fcntl_lock(inode: u64, cmd: i32, flock: &mut Flock) -> Result<(), LockError> {
-    let pid = crate::process::current()
-        .map(|p| p.pid)
-        .unwrap_or(Pid(0));
+    let pid = crate::process::current().map(|p| p.pid).unwrap_or(Pid(0));
 
     match cmd {
         fcntl_cmd::F_GETLK => {
@@ -213,7 +209,11 @@ pub fn fcntl_lock(inode: u64, cmd: i32, flock: &mut Flock) -> Result<(), LockErr
 
             if let Some(state) = locks.get(&inode) {
                 let start = flock.l_start as u64;
-                let len = if flock.l_len == 0 { u64::MAX } else { flock.l_len as u64 };
+                let len = if flock.l_len == 0 {
+                    u64::MAX
+                } else {
+                    flock.l_len as u64
+                };
                 let end = start.saturating_add(len);
 
                 for lock in &state.range_locks {
@@ -272,15 +272,14 @@ pub fn fcntl_lock(inode: u64, cmd: i32, flock: &mut Flock) -> Result<(), LockErr
 }
 
 /// Apply byte-range lock
-fn apply_range_lock(
-    inode: u64,
-    flock: &Flock,
-    pid: Pid,
-    blocking: bool,
-) -> Result<(), LockError> {
+fn apply_range_lock(inode: u64, flock: &Flock, pid: Pid, blocking: bool) -> Result<(), LockError> {
     let lock_type = flock.lock_type();
     let start = flock.l_start as u64;
-    let len = if flock.l_len == 0 { 0 } else { flock.l_len as u64 };
+    let len = if flock.l_len == 0 {
+        0
+    } else {
+        flock.l_len as u64
+    };
 
     loop {
         let result = try_range_lock(inode, lock_type, start, len, flock.l_whence, pid);
@@ -318,7 +317,11 @@ fn try_range_lock(
     let mut locks = FILE_LOCKS.write();
     let state = locks.entry(inode).or_insert_with(FileLockState::new);
 
-    let end = if len == 0 { u64::MAX } else { start.saturating_add(len) };
+    let end = if len == 0 {
+        u64::MAX
+    } else {
+        start.saturating_add(len)
+    };
 
     if lock_type == LockType::Unlock {
         // Remove matching locks from this process

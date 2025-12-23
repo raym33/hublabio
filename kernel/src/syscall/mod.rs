@@ -4,15 +4,15 @@
 //! ARM64 uses SVC instruction to trigger syscalls.
 
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 use spin::Mutex;
 
-use crate::process::{self, Pid};
-use crate::vfs;
 use crate::ipc;
+use crate::process::{self, Pid};
 use crate::signal::{Signal, SignalAction};
+use crate::vfs;
 
 /// Syscall numbers
 pub mod nr {
@@ -127,45 +127,45 @@ pub mod nr {
 /// Syscall error codes (POSIX-compatible)
 pub mod errno {
     pub const SUCCESS: isize = 0;
-    pub const EPERM: isize = -1;      // Operation not permitted
-    pub const ENOENT: isize = -2;     // No such file or directory
-    pub const ESRCH: isize = -3;      // No such process
-    pub const EINTR: isize = -4;      // Interrupted system call
-    pub const EIO: isize = -5;        // I/O error
-    pub const ENXIO: isize = -6;      // No such device or address
-    pub const E2BIG: isize = -7;      // Argument list too long
-    pub const ENOEXEC: isize = -8;    // Exec format error
-    pub const EBADF: isize = -9;      // Bad file descriptor
-    pub const ECHILD: isize = -10;    // No child processes
-    pub const EAGAIN: isize = -11;    // Try again (EWOULDBLOCK)
-    pub const ENOMEM: isize = -12;    // Out of memory
-    pub const EACCES: isize = -13;    // Permission denied
-    pub const EFAULT: isize = -14;    // Bad address
-    pub const EBUSY: isize = -16;     // Device or resource busy
-    pub const EEXIST: isize = -17;    // File exists
-    pub const EXDEV: isize = -18;     // Cross-device link
-    pub const ENODEV: isize = -19;    // No such device
-    pub const ENOTDIR: isize = -20;   // Not a directory
-    pub const EISDIR: isize = -21;    // Is a directory
-    pub const EINVAL: isize = -22;    // Invalid argument
-    pub const ENFILE: isize = -23;    // File table overflow
-    pub const EMFILE: isize = -24;    // Too many open files
-    pub const ENOTTY: isize = -25;    // Not a typewriter
-    pub const ETXTBSY: isize = -26;   // Text file busy
-    pub const EFBIG: isize = -27;     // File too large
-    pub const ENOSPC: isize = -28;    // No space left on device
-    pub const ESPIPE: isize = -29;    // Illegal seek
-    pub const EROFS: isize = -30;     // Read-only file system
-    pub const EMLINK: isize = -31;    // Too many links
-    pub const EPIPE: isize = -32;     // Broken pipe
-    pub const EDOM: isize = -33;      // Math argument out of domain
-    pub const ERANGE: isize = -34;    // Math result not representable
-    pub const EDEADLK: isize = -35;   // Resource deadlock would occur
+    pub const EPERM: isize = -1; // Operation not permitted
+    pub const ENOENT: isize = -2; // No such file or directory
+    pub const ESRCH: isize = -3; // No such process
+    pub const EINTR: isize = -4; // Interrupted system call
+    pub const EIO: isize = -5; // I/O error
+    pub const ENXIO: isize = -6; // No such device or address
+    pub const E2BIG: isize = -7; // Argument list too long
+    pub const ENOEXEC: isize = -8; // Exec format error
+    pub const EBADF: isize = -9; // Bad file descriptor
+    pub const ECHILD: isize = -10; // No child processes
+    pub const EAGAIN: isize = -11; // Try again (EWOULDBLOCK)
+    pub const ENOMEM: isize = -12; // Out of memory
+    pub const EACCES: isize = -13; // Permission denied
+    pub const EFAULT: isize = -14; // Bad address
+    pub const EBUSY: isize = -16; // Device or resource busy
+    pub const EEXIST: isize = -17; // File exists
+    pub const EXDEV: isize = -18; // Cross-device link
+    pub const ENODEV: isize = -19; // No such device
+    pub const ENOTDIR: isize = -20; // Not a directory
+    pub const EISDIR: isize = -21; // Is a directory
+    pub const EINVAL: isize = -22; // Invalid argument
+    pub const ENFILE: isize = -23; // File table overflow
+    pub const EMFILE: isize = -24; // Too many open files
+    pub const ENOTTY: isize = -25; // Not a typewriter
+    pub const ETXTBSY: isize = -26; // Text file busy
+    pub const EFBIG: isize = -27; // File too large
+    pub const ENOSPC: isize = -28; // No space left on device
+    pub const ESPIPE: isize = -29; // Illegal seek
+    pub const EROFS: isize = -30; // Read-only file system
+    pub const EMLINK: isize = -31; // Too many links
+    pub const EPIPE: isize = -32; // Broken pipe
+    pub const EDOM: isize = -33; // Math argument out of domain
+    pub const ERANGE: isize = -34; // Math result not representable
+    pub const EDEADLK: isize = -35; // Resource deadlock would occur
     pub const ENAMETOOLONG: isize = -36; // File name too long
-    pub const ENOLCK: isize = -37;    // No record locks available
-    pub const ENOSYS: isize = -38;    // Function not implemented
+    pub const ENOLCK: isize = -37; // No record locks available
+    pub const ENOSYS: isize = -38; // Function not implemented
     pub const ENOTEMPTY: isize = -39; // Directory not empty
-    pub const ELOOP: isize = -40;     // Too many symbolic links
+    pub const ELOOP: isize = -40; // Too many symbolic links
     pub const ETIMEDOUT: isize = -110; // Connection timed out
     pub const ECONNREFUSED: isize = -111; // Connection refused
 }
@@ -517,9 +517,7 @@ fn sys_clone(flags: usize, stack: usize, ptid: usize, tls: usize, ctid: usize) -
 }
 
 fn sys_getuid() -> SyscallResult {
-    process::current()
-        .map(|p| p.uid as isize)
-        .unwrap_or(0)
+    process::current().map(|p| p.uid as isize).unwrap_or(0)
 }
 
 // ============================================================================
@@ -777,7 +775,7 @@ fn sys_pipe(pipefd_ptr: usize) -> SyscallResult {
 fn sys_fcntl(fd: u32, cmd: u32, arg: usize) -> SyscallResult {
     // F_DUPFD = 0, F_GETFD = 1, F_SETFD = 2, F_GETFL = 3, F_SETFL = 4
     match cmd {
-        0 => sys_dup(fd), // F_DUPFD
+        0 => sys_dup(fd),    // F_DUPFD
         1 => errno::SUCCESS, // F_GETFD - return 0 (no close-on-exec)
         2 => errno::SUCCESS, // F_SETFD - ignore
         3 => errno::SUCCESS, // F_GETFL - return 0 (O_RDONLY)
@@ -980,15 +978,21 @@ fn mmap_page(page_table: usize, vaddr: usize, paddr: usize, flags: crate::memory
     unsafe {
         // Get or create L1 table
         let l1 = mmap_get_or_create_table(l0, l0_idx);
-        if l1.is_null() { return; }
+        if l1.is_null() {
+            return;
+        }
 
         // Get or create L2 table
         let l2 = mmap_get_or_create_table(l1, l1_idx);
-        if l2.is_null() { return; }
+        if l2.is_null() {
+            return;
+        }
 
         // Get or create L3 table
         let l3 = mmap_get_or_create_table(l2, l2_idx);
-        if l3.is_null() { return; }
+        if l3.is_null() {
+            return;
+        }
 
         // Set L3 entry (final mapping)
         let entry = (paddr as u64) | flags.bits() | 0x3;
@@ -1064,7 +1068,9 @@ fn sys_munmap(addr: usize, length: usize) -> SyscallResult {
     // Remove from process memory regions
     {
         let mut memory = proc.memory.lock();
-        memory.regions.retain(|r| !(r.start == addr && r.end == addr + length));
+        memory
+            .regions
+            .retain(|r| !(r.start == addr && r.end == addr + length));
     }
 
     // Remove from mmap regions
@@ -1086,19 +1092,27 @@ fn munmap_page(page_table: usize, vaddr: usize) {
     unsafe {
         // Walk page tables
         let l0_entry = *l0.add(l0_idx);
-        if l0_entry & 0x1 == 0 { return; }
+        if l0_entry & 0x1 == 0 {
+            return;
+        }
 
         let l1 = (l0_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
         let l1_entry = *l1.add(l1_idx);
-        if l1_entry & 0x1 == 0 { return; }
+        if l1_entry & 0x1 == 0 {
+            return;
+        }
 
         let l2 = (l1_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
         let l2_entry = *l2.add(l2_idx);
-        if l2_entry & 0x1 == 0 { return; }
+        if l2_entry & 0x1 == 0 {
+            return;
+        }
 
         let l3 = (l2_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
         let l3_entry = *l3.add(l3_idx);
-        if l3_entry & 0x1 == 0 { return; }
+        if l3_entry & 0x1 == 0 {
+            return;
+        }
 
         // Get physical address and free the frame
         let paddr = (l3_entry & 0x0000_FFFF_FFFF_F000) as usize;
@@ -1369,7 +1383,10 @@ fn sys_nanosleep(req: usize, rem: usize) -> SyscallResult {
 
     if rem != 0 {
         unsafe {
-            *(rem as *mut Timespec) = Timespec { tv_sec: 0, tv_nsec: 0 };
+            *(rem as *mut Timespec) = Timespec {
+                tv_sec: 0,
+                tv_nsec: 0,
+            };
         }
     }
 
@@ -1499,23 +1516,28 @@ fn sys_getrlimit(resource: i32, rlim: usize) -> SyscallResult {
 
     // Default limits
     match resource {
-        0 => { // RLIMIT_CPU
+        0 => {
+            // RLIMIT_CPU
             limit.rlim_cur = u64::MAX;
             limit.rlim_max = u64::MAX;
         }
-        1 => { // RLIMIT_FSIZE
+        1 => {
+            // RLIMIT_FSIZE
             limit.rlim_cur = u64::MAX;
             limit.rlim_max = u64::MAX;
         }
-        2 => { // RLIMIT_DATA
+        2 => {
+            // RLIMIT_DATA
             limit.rlim_cur = 64 * 1024 * 1024;
             limit.rlim_max = 64 * 1024 * 1024;
         }
-        3 => { // RLIMIT_STACK
+        3 => {
+            // RLIMIT_STACK
             limit.rlim_cur = 8 * 1024 * 1024;
             limit.rlim_max = 64 * 1024 * 1024;
         }
-        7 => { // RLIMIT_NOFILE
+        7 => {
+            // RLIMIT_NOFILE
             limit.rlim_cur = 1024;
             limit.rlim_max = 4096;
         }
@@ -1545,12 +1567,20 @@ struct Semaphore {
 
 static SEMAPHORES: Mutex<Vec<(usize, Semaphore)>> = Mutex::new(Vec::new());
 
-fn sys_futex(uaddr: usize, op: i32, val: u32, timeout: usize, uaddr2: usize, val3: u32) -> SyscallResult {
+fn sys_futex(
+    uaddr: usize,
+    op: i32,
+    val: u32,
+    timeout: usize,
+    uaddr2: usize,
+    val3: u32,
+) -> SyscallResult {
     let _ = (timeout, uaddr2, val3);
 
     // FUTEX_WAIT = 0, FUTEX_WAKE = 1
     match op & 0x7F {
-        0 => { // FUTEX_WAIT
+        0 => {
+            // FUTEX_WAIT
             let current = unsafe { *(uaddr as *const u32) };
             if current != val {
                 return errno::EAGAIN;
@@ -1559,7 +1589,8 @@ fn sys_futex(uaddr: usize, op: i32, val: u32, timeout: usize, uaddr2: usize, val
             crate::scheduler::schedule();
             errno::SUCCESS
         }
-        1 => { // FUTEX_WAKE
+        1 => {
+            // FUTEX_WAKE
             // Wake up to 'val' waiters
             errno::SUCCESS
         }
@@ -1587,7 +1618,10 @@ fn sys_sem_wait(sem: usize) -> SyscallResult {
             loop {
                 let val = s.value.load(Ordering::SeqCst);
                 if val > 0 {
-                    if s.value.compare_exchange(val, val - 1, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                    if s.value
+                        .compare_exchange(val, val - 1, Ordering::SeqCst, Ordering::SeqCst)
+                        .is_ok()
+                    {
                         return errno::SUCCESS;
                     }
                 } else {
@@ -1686,12 +1720,26 @@ fn sys_recv(sockfd: i32, buf: usize, len: usize, flags: i32) -> SyscallResult {
     }
 }
 
-fn sys_sendto(sockfd: i32, buf: usize, len: usize, flags: i32, dest_addr: usize, addrlen: u32) -> SyscallResult {
+fn sys_sendto(
+    sockfd: i32,
+    buf: usize,
+    len: usize,
+    flags: i32,
+    dest_addr: usize,
+    addrlen: u32,
+) -> SyscallResult {
     let _ = (dest_addr, addrlen);
     sys_send(sockfd, buf, len, flags)
 }
 
-fn sys_recvfrom(sockfd: i32, buf: usize, len: usize, flags: i32, src_addr: usize, addrlen: usize) -> SyscallResult {
+fn sys_recvfrom(
+    sockfd: i32,
+    buf: usize,
+    len: usize,
+    flags: i32,
+    src_addr: usize,
+    addrlen: usize,
+) -> SyscallResult {
     let _ = (src_addr, addrlen);
     sys_recv(sockfd, buf, len, flags)
 }
@@ -1732,7 +1780,10 @@ fn sys_ai_generate(
         Err(e) => return e,
     };
 
-    crate::kinfo!("AI: Generate with prompt: {}", &prompt[..prompt.len().min(50)]);
+    crate::kinfo!(
+        "AI: Generate with prompt: {}",
+        &prompt[..prompt.len().min(50)]
+    );
 
     // Placeholder response
     let response = "AI response placeholder - model not loaded";
@@ -1936,7 +1987,9 @@ fn sys_smp_info(info_ptr: usize) -> SyscallResult {
     for cpu in 0..crate::smp::MAX_CPUS {
         if let Some(pcpu) = crate::smp::get(cpu as u32) {
             info.per_cpu_ticks[cpu] = pcpu.ticks.load(core::sync::atomic::Ordering::Relaxed);
-            info.per_cpu_ctx_switches[cpu] = pcpu.context_switches.load(core::sync::atomic::Ordering::Relaxed);
+            info.per_cpu_ctx_switches[cpu] = pcpu
+                .context_switches
+                .load(core::sync::atomic::Ordering::Relaxed);
         }
     }
 

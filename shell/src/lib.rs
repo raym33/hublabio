@@ -19,8 +19,8 @@ pub mod gui;
 #[path = "../voice/mod.rs"]
 pub mod voice;
 
-pub mod commands;
 pub mod ai_chat;
+pub mod commands;
 pub mod themes;
 
 use alloc::string::String;
@@ -122,19 +122,22 @@ impl Shell {
             "help" => Some(ShellResult::Output(self.help_text())),
             "history" => Some(ShellResult::Output(self.format_history())),
             "clear" => Some(ShellResult::Clear),
-            "version" => Some(ShellResult::Output(
-                alloc::format!("HubLab IO Shell v{}", VERSION)
-            )),
+            "version" => Some(ShellResult::Output(alloc::format!(
+                "HubLab IO Shell v{}",
+                VERSION
+            ))),
             "theme" => {
                 if let Some(name) = parts.get(1) {
                     self.config.theme = String::from(*name);
-                    Some(ShellResult::Output(
-                        alloc::format!("Theme set to: {}", name)
-                    ))
+                    Some(ShellResult::Output(alloc::format!(
+                        "Theme set to: {}",
+                        name
+                    )))
                 } else {
-                    Some(ShellResult::Output(
-                        alloc::format!("Current theme: {}", self.config.theme)
-                    ))
+                    Some(ShellResult::Output(alloc::format!(
+                        "Current theme: {}",
+                        self.config.theme
+                    )))
                 }
             }
             _ => None,
@@ -173,7 +176,7 @@ impl Shell {
              ps          List processes\n\
              top         System monitor\n\
              ai          AI model management\n\
-             pkg         Package manager\n"
+             pkg         Package manager\n",
         )
     }
 

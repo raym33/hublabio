@@ -2,12 +2,12 @@
 //!
 //! Address Resolution Protocol for IPv4 to MAC address mapping.
 
-use alloc::vec::Vec;
 use alloc::collections::BTreeMap;
-use spin::Mutex;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
+use spin::Mutex;
 
-use super::{MacAddress, Ipv4Address, NetError};
+use super::{Ipv4Address, MacAddress, NetError};
 
 /// ARP hardware types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,8 +63,12 @@ impl ArpPacket {
     }
 
     /// Create ARP reply
-    pub fn reply(sender_mac: MacAddress, sender_ip: Ipv4Address,
-                 target_mac: MacAddress, target_ip: Ipv4Address) -> Self {
+    pub fn reply(
+        sender_mac: MacAddress,
+        sender_ip: Ipv4Address,
+        target_mac: MacAddress,
+        target_ip: Ipv4Address,
+    ) -> Self {
         Self {
             hardware_type: (HardwareType::Ethernet as u16).to_be(),
             protocol_type: 0x0800_u16.to_be(),
@@ -211,7 +215,10 @@ impl ArpEntry {
 
     /// Check if entry is valid
     pub fn is_valid(&self) -> bool {
-        matches!(self.state, ArpState::Reachable | ArpState::Stale | ArpState::Permanent)
+        matches!(
+            self.state,
+            ArpState::Reachable | ArpState::Stale | ArpState::Permanent
+        )
     }
 
     /// Check if entry needs refresh
@@ -240,9 +247,7 @@ impl ArpCache {
 
     /// Look up MAC for IP
     pub fn lookup(&self, ip: &Ipv4Address) -> Option<MacAddress> {
-        self.entries.get(ip)
-            .filter(|e| e.is_valid())
-            .map(|e| e.mac)
+        self.entries.get(ip).filter(|e| e.is_valid()).map(|e| e.mac)
     }
 
     /// Get entry
@@ -281,7 +286,8 @@ impl ArpCache {
 
     /// Evict oldest non-permanent entry
     fn evict_oldest(&mut self) {
-        let oldest = self.entries
+        let oldest = self
+            .entries
             .iter()
             .filter(|(_, e)| e.state != ArpState::Permanent)
             .min_by_key(|(_, e)| e.last_used)
@@ -294,18 +300,15 @@ impl ArpCache {
 
     /// Clean up expired entries
     pub fn cleanup(&mut self, timestamp: u64, reachable_timeout: u64, incomplete_timeout: u64) {
-        let expired: Vec<_> = self.entries
+        let expired: Vec<_> = self
+            .entries
             .iter()
-            .filter(|(_, e)| {
-                match e.state {
-                    ArpState::Permanent => false,
-                    ArpState::Incomplete | ArpState::Failed => {
-                        timestamp.saturating_sub(e.created) > incomplete_timeout
-                    }
-                    _ => {
-                        timestamp.saturating_sub(e.last_used) > reachable_timeout
-                    }
+            .filter(|(_, e)| match e.state {
+                ArpState::Permanent => false,
+                ArpState::Incomplete | ArpState::Failed => {
+                    timestamp.saturating_sub(e.created) > incomplete_timeout
                 }
+                _ => timestamp.saturating_sub(e.last_used) > reachable_timeout,
             })
             .map(|(ip, _)| *ip)
             .collect();

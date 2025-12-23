@@ -2,15 +2,15 @@
 //!
 //! Window creation, management, and rendering.
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::boxed::Box;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use super::{Rect, Point, Size, Color};
-use super::widgets::Widget;
 use super::input::MouseButton;
 use super::theme::Theme;
+use super::widgets::Widget;
+use super::{Color, Point, Rect, Size};
 
 /// Window identifier
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -183,7 +183,7 @@ impl Window {
         if self.has_titlebar() {
             Rect::new(
                 self.bounds.x,
-                self.bounds.y + 24,  // Title bar height
+                self.bounds.y + 24, // Title bar height
                 self.bounds.width,
                 self.bounds.height.saturating_sub(24),
             )
@@ -397,8 +397,11 @@ impl Window {
                 let px = rect.x + x as i32;
                 let py = rect.y + y as i32;
 
-                if px >= 0 && px < self.bounds.width as i32 &&
-                   py >= 0 && py < self.bounds.height as i32 {
+                if px >= 0
+                    && px < self.bounds.width as i32
+                    && py >= 0
+                    && py < self.bounds.height as i32
+                {
                     let idx = (py as u32 * self.bounds.width + px as u32) as usize;
                     if idx < self.content.len() {
                         self.content[idx] = c;

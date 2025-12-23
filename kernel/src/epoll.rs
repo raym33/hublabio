@@ -345,13 +345,13 @@ pub enum EpollError {
 impl EpollError {
     pub fn to_errno(&self) -> i32 {
         match self {
-            EpollError::Exists => -17,      // EEXIST
-            EpollError::NotFound => -2,     // ENOENT
-            EpollError::Invalid => -22,     // EINVAL
-            EpollError::TooMany => -24,     // EMFILE
-            EpollError::Interrupted => -4,  // EINTR
-            EpollError::BadFd => -9,        // EBADF
-            EpollError::Permission => -1,   // EPERM
+            EpollError::Exists => -17,     // EEXIST
+            EpollError::NotFound => -2,    // ENOENT
+            EpollError::Invalid => -22,    // EINVAL
+            EpollError::TooMany => -24,    // EMFILE
+            EpollError::Interrupted => -4, // EINTR
+            EpollError::BadFd => -9,       // EBADF
+            EpollError::Permission => -1,  // EPERM
         }
     }
 }
@@ -396,7 +396,10 @@ pub fn epoll_close(epfd: i32) -> Result<(), EpollError> {
         return Err(EpollError::BadFd);
     }
     let id = (epfd - 1000) as u32;
-    EPOLL_INSTANCES.write().remove(&id).ok_or(EpollError::BadFd)?;
+    EPOLL_INSTANCES
+        .write()
+        .remove(&id)
+        .ok_or(EpollError::BadFd)?;
     Ok(())
 }
 
@@ -442,12 +445,10 @@ pub fn sys_epoll_ctl(epfd: i32, op: i32, fd: i32, event: *const EpollEvent) -> i
                 Err(e) => e.to_errno() as isize,
             }
         }
-        ops::EPOLL_CTL_DEL => {
-            match instance.delete(fd) {
-                Ok(()) => 0,
-                Err(e) => e.to_errno() as isize,
-            }
-        }
+        ops::EPOLL_CTL_DEL => match instance.delete(fd) {
+            Ok(()) => 0,
+            Err(e) => e.to_errno() as isize,
+        },
         ops::EPOLL_CTL_MOD => {
             if event.is_null() {
                 return -14; // EFAULT
@@ -473,9 +474,7 @@ pub fn sys_epoll_wait(epfd: i32, events: *mut EpollEvent, maxevents: i32, timeou
         None => return -9, // EBADF
     };
 
-    let event_slice = unsafe {
-        core::slice::from_raw_parts_mut(events, maxevents as usize)
-    };
+    let event_slice = unsafe { core::slice::from_raw_parts_mut(events, maxevents as usize) };
 
     match instance.wait(event_slice, timeout) {
         Ok(n) => n as isize,
@@ -539,9 +538,7 @@ pub fn sys_poll(fds: *mut PollFd, nfds: u32, timeout: i32) -> isize {
         Some(crate::time::monotonic_ns() + (timeout as u64) * 1_000_000)
     };
 
-    let fds_slice = unsafe {
-        core::slice::from_raw_parts_mut(fds, nfds as usize)
-    };
+    let fds_slice = unsafe { core::slice::from_raw_parts_mut(fds, nfds as usize) };
 
     loop {
         let mut ready_count = 0i32;
@@ -690,9 +687,11 @@ pub fn sys_select(
         if tv.tv_sec == 0 && tv.tv_usec == 0 {
             Some(0)
         } else {
-            Some(crate::time::monotonic_ns() +
-                 (tv.tv_sec as u64) * 1_000_000_000 +
-                 (tv.tv_usec as u64) * 1000)
+            Some(
+                crate::time::monotonic_ns()
+                    + (tv.tv_sec as u64) * 1_000_000_000
+                    + (tv.tv_usec as u64) * 1000,
+            )
         }
     };
 

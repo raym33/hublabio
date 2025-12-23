@@ -5,8 +5,8 @@
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use spin::RwLock;
 
 /// Expert identifier
@@ -98,13 +98,16 @@ impl Router {
                 .push(id);
         }
 
-        self.experts.insert(id, ExpertState {
-            config,
-            loaded: false,
-            busy: false,
-            total_queries: 0,
-            avg_latency_ms: 0.0,
-        });
+        self.experts.insert(
+            id,
+            ExpertState {
+                config,
+                loaded: false,
+                busy: false,
+                total_queries: 0,
+                avg_latency_ms: 0.0,
+            },
+        );
     }
 
     /// Route a query to relevant experts
@@ -137,21 +140,16 @@ impl Router {
                 ranked.truncate(k);
                 ranked.into_iter().map(|(id, _)| id).collect()
             }
-            RoutingStrategy::Threshold(t) => {
-                ranked.into_iter()
-                    .filter(|(id, score)| {
-                        let expert = self.experts.get(id).unwrap();
-                        *score >= expert.config.domain.threshold.max(t)
-                    })
-                    .map(|(id, _)| id)
-                    .collect()
-            }
-            RoutingStrategy::Single => {
-                ranked.into_iter().take(1).map(|(id, _)| id).collect()
-            }
-            RoutingStrategy::All => {
-                self.experts.keys().copied().collect()
-            }
+            RoutingStrategy::Threshold(t) => ranked
+                .into_iter()
+                .filter(|(id, score)| {
+                    let expert = self.experts.get(id).unwrap();
+                    *score >= expert.config.domain.threshold.max(t)
+                })
+                .map(|(id, _)| id)
+                .collect(),
+            RoutingStrategy::Single => ranked.into_iter().take(1).map(|(id, _)| id).collect(),
+            RoutingStrategy::All => self.experts.keys().copied().collect(),
         }
     }
 
@@ -227,21 +225,20 @@ impl Synthesizer {
         }
 
         match self.strategy {
-            SynthesisStrategy::Concatenate => {
-                responses.iter()
-                    .map(|r| r.content.as_str())
-                    .collect::<Vec<_>>()
-                    .join("\n\n---\n\n")
-            }
-            SynthesisStrategy::Best => {
-                responses.iter()
-                    .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
-                    .map(|r| r.content.clone())
-                    .unwrap_or_default()
-            }
+            SynthesisStrategy::Concatenate => responses
+                .iter()
+                .map(|r| r.content.as_str())
+                .collect::<Vec<_>>()
+                .join("\n\n---\n\n"),
+            SynthesisStrategy::Best => responses
+                .iter()
+                .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
+                .map(|r| r.content.clone())
+                .unwrap_or_default(),
             SynthesisStrategy::Voting | SynthesisStrategy::WeightedAverage => {
                 // For text generation, default to best
-                responses.iter()
+                responses
+                    .iter()
                     .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
                     .map(|r| r.content.clone())
                     .unwrap_or_default()
@@ -252,7 +249,9 @@ impl Synthesizer {
                 for (i, r) in responses.iter().enumerate() {
                     context.push_str(&alloc::format!(
                         "Expert {} (confidence: {:.2}):\n{}\n\n",
-                        i + 1, r.confidence, r.content
+                        i + 1,
+                        r.confidence,
+                        r.content
                     ));
                 }
                 // Return context - actual summarization would need model inference

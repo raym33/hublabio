@@ -2,9 +2,9 @@
 //!
 //! ELF loading and process execution.
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::collections::BTreeMap;
 use spin::Mutex;
 
 /// ELF magic number
@@ -105,7 +105,7 @@ pub enum ExecError {
 pub struct LoadedProgram {
     pub entry_point: usize,
     pub base_addr: usize,
-    pub brk: usize,  // Program break (end of data segment)
+    pub brk: usize, // Program break (end of data segment)
     pub stack_top: usize,
     pub interp: Option<String>,
 }
@@ -124,9 +124,8 @@ pub fn parse_elf_header(data: &[u8]) -> Result<Elf64Header, ExecError> {
         return Err(ExecError::UnsupportedArch);
     }
 
-    let header: Elf64Header = unsafe {
-        core::ptr::read_unaligned(data.as_ptr() as *const Elf64Header)
-    };
+    let header: Elf64Header =
+        unsafe { core::ptr::read_unaligned(data.as_ptr() as *const Elf64Header) };
 
     // Verify architecture
     #[cfg(target_arch = "aarch64")]
@@ -225,7 +224,9 @@ pub fn load_elf(data: &[u8]) -> Result<LoadedProgram, ExecError> {
 
         crate::kdebug!(
             "ELF: Load segment at 0x{:x}, file size {}, mem size {}",
-            vaddr, filesz, memsz
+            vaddr,
+            filesz,
+            memsz
         );
     }
 
@@ -242,16 +243,11 @@ pub fn load_elf(data: &[u8]) -> Result<LoadedProgram, ExecError> {
 }
 
 /// Execute a program
-pub fn execve(
-    path: &str,
-    argv: &[&str],
-    envp: &[&str],
-) -> Result<LoadedProgram, ExecError> {
+pub fn execve(path: &str, argv: &[&str], envp: &[&str]) -> Result<LoadedProgram, ExecError> {
     crate::kinfo!("exec: Executing {}", path);
 
     // Read the file from VFS
-    let data = crate::vfs::read_file(path)
-        .map_err(|_| ExecError::FileNotFound)?;
+    let data = crate::vfs::read_file(path).map_err(|_| ExecError::FileNotFound)?;
 
     if data.is_empty() {
         return Err(ExecError::InvalidFormat);
@@ -269,7 +265,9 @@ pub fn execve(
 
     crate::kinfo!(
         "exec: Loaded {} at 0x{:x}, entry 0x{:x}",
-        path, program.base_addr, program.entry_point
+        path,
+        program.base_addr,
+        program.entry_point
     );
 
     // Set up stack
@@ -301,7 +299,9 @@ pub fn exec_program(
 
         crate::kinfo!(
             "exec: Process {} executing {}, entry=0x{:x}",
-            proc.pid.0, path, program.entry_point
+            proc.pid.0,
+            path,
+            program.entry_point
         );
     }
 

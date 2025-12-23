@@ -5,8 +5,8 @@
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use spin::Mutex;
-use core::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
 /// Default pipe buffer size
 pub const PIPE_BUF_SIZE: usize = 65536;

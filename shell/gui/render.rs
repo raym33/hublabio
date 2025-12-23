@@ -2,15 +2,10 @@
 //!
 //! Basic drawing operations for the GUI.
 
-use super::{Rect, Color, Point};
+use super::{Color, Point, Rect};
 
 /// Draw a filled rectangle
-pub fn fill_rect(
-    buffer: &mut [u32],
-    screen_width: u32,
-    rect: Rect,
-    color: Color,
-) {
+pub fn fill_rect(buffer: &mut [u32], screen_width: u32, rect: Rect, color: Color) {
     let argb = color.to_argb();
 
     for y in 0..rect.height {
@@ -29,13 +24,7 @@ pub fn fill_rect(
 }
 
 /// Draw a rectangle border
-pub fn draw_rect(
-    buffer: &mut [u32],
-    screen_width: u32,
-    rect: Rect,
-    color: Color,
-    thickness: u32,
-) {
+pub fn draw_rect(buffer: &mut [u32], screen_width: u32, rect: Rect, color: Color, thickness: u32) {
     let argb = color.to_argb();
 
     // Top edge
@@ -104,14 +93,7 @@ pub fn draw_rect(
 }
 
 /// Draw a horizontal line
-pub fn draw_hline(
-    buffer: &mut [u32],
-    screen_width: u32,
-    x: i32,
-    y: i32,
-    width: u32,
-    color: Color,
-) {
+pub fn draw_hline(buffer: &mut [u32], screen_width: u32, x: i32, y: i32, width: u32, color: Color) {
     if y < 0 {
         return;
     }
@@ -280,22 +262,74 @@ pub fn draw_rounded_rect(
     let r = radius as i32;
 
     // Top edge (excluding corners)
-    draw_hline(buffer, screen_width, rect.x + r, rect.y, rect.width - 2 * radius, color);
+    draw_hline(
+        buffer,
+        screen_width,
+        rect.x + r,
+        rect.y,
+        rect.width - 2 * radius,
+        color,
+    );
 
     // Bottom edge (excluding corners)
-    draw_hline(buffer, screen_width, rect.x + r, rect.y + rect.height as i32 - 1, rect.width - 2 * radius, color);
+    draw_hline(
+        buffer,
+        screen_width,
+        rect.x + r,
+        rect.y + rect.height as i32 - 1,
+        rect.width - 2 * radius,
+        color,
+    );
 
     // Left edge (excluding corners)
-    draw_vline(buffer, screen_width, rect.x, rect.y + r, rect.height - 2 * radius, color);
+    draw_vline(
+        buffer,
+        screen_width,
+        rect.x,
+        rect.y + r,
+        rect.height - 2 * radius,
+        color,
+    );
 
     // Right edge (excluding corners)
-    draw_vline(buffer, screen_width, rect.x + rect.width as i32 - 1, rect.y + r, rect.height - 2 * radius, color);
+    draw_vline(
+        buffer,
+        screen_width,
+        rect.x + rect.width as i32 - 1,
+        rect.y + r,
+        rect.height - 2 * radius,
+        color,
+    );
 
     // Corners using arcs
-    draw_corner_arc(buffer, screen_width, rect.x + r, rect.y + r, r, 2, argb);  // Top-left
-    draw_corner_arc(buffer, screen_width, rect.x + rect.width as i32 - r - 1, rect.y + r, r, 1, argb);  // Top-right
-    draw_corner_arc(buffer, screen_width, rect.x + r, rect.y + rect.height as i32 - r - 1, r, 3, argb);  // Bottom-left
-    draw_corner_arc(buffer, screen_width, rect.x + rect.width as i32 - r - 1, rect.y + rect.height as i32 - r - 1, r, 0, argb);  // Bottom-right
+    draw_corner_arc(buffer, screen_width, rect.x + r, rect.y + r, r, 2, argb); // Top-left
+    draw_corner_arc(
+        buffer,
+        screen_width,
+        rect.x + rect.width as i32 - r - 1,
+        rect.y + r,
+        r,
+        1,
+        argb,
+    ); // Top-right
+    draw_corner_arc(
+        buffer,
+        screen_width,
+        rect.x + r,
+        rect.y + rect.height as i32 - r - 1,
+        r,
+        3,
+        argb,
+    ); // Bottom-left
+    draw_corner_arc(
+        buffer,
+        screen_width,
+        rect.x + rect.width as i32 - r - 1,
+        rect.y + rect.height as i32 - r - 1,
+        r,
+        0,
+        argb,
+    ); // Bottom-right
 }
 
 /// Draw a filled rounded rectangle
@@ -310,25 +344,63 @@ pub fn fill_rounded_rect(
     let r = radius as i32;
 
     // Fill main body (excluding corners)
-    fill_rect(buffer, screen_width,
+    fill_rect(
+        buffer,
+        screen_width,
         Rect::new(rect.x + r, rect.y, rect.width - 2 * radius, rect.height),
-        color);
+        color,
+    );
 
     // Fill left side
-    fill_rect(buffer, screen_width,
+    fill_rect(
+        buffer,
+        screen_width,
         Rect::new(rect.x, rect.y + r, radius, rect.height - 2 * radius),
-        color);
+        color,
+    );
 
     // Fill right side
-    fill_rect(buffer, screen_width,
-        Rect::new(rect.x + rect.width as i32 - r, rect.y + r, radius, rect.height - 2 * radius),
-        color);
+    fill_rect(
+        buffer,
+        screen_width,
+        Rect::new(
+            rect.x + rect.width as i32 - r,
+            rect.y + r,
+            radius,
+            rect.height - 2 * radius,
+        ),
+        color,
+    );
 
     // Fill corners with arcs
     fill_corner_arc(buffer, screen_width, rect.x + r, rect.y + r, r, 2, argb);
-    fill_corner_arc(buffer, screen_width, rect.x + rect.width as i32 - r - 1, rect.y + r, r, 1, argb);
-    fill_corner_arc(buffer, screen_width, rect.x + r, rect.y + rect.height as i32 - r - 1, r, 3, argb);
-    fill_corner_arc(buffer, screen_width, rect.x + rect.width as i32 - r - 1, rect.y + rect.height as i32 - r - 1, r, 0, argb);
+    fill_corner_arc(
+        buffer,
+        screen_width,
+        rect.x + rect.width as i32 - r - 1,
+        rect.y + r,
+        r,
+        1,
+        argb,
+    );
+    fill_corner_arc(
+        buffer,
+        screen_width,
+        rect.x + r,
+        rect.y + rect.height as i32 - r - 1,
+        r,
+        3,
+        argb,
+    );
+    fill_corner_arc(
+        buffer,
+        screen_width,
+        rect.x + rect.width as i32 - r - 1,
+        rect.y + rect.height as i32 - r - 1,
+        r,
+        0,
+        argb,
+    );
 }
 
 // Helper to draw a corner arc (quadrant: 0=BR, 1=TR, 2=TL, 3=BL)
@@ -347,19 +419,23 @@ fn draw_corner_arc(
 
     while x >= y {
         match quadrant {
-            0 => {  // Bottom-right
+            0 => {
+                // Bottom-right
                 set_pixel_safe(buffer, screen_width, cx + x, cy + y, argb);
                 set_pixel_safe(buffer, screen_width, cx + y, cy + x, argb);
             }
-            1 => {  // Top-right
+            1 => {
+                // Top-right
                 set_pixel_safe(buffer, screen_width, cx + x, cy - y, argb);
                 set_pixel_safe(buffer, screen_width, cx + y, cy - x, argb);
             }
-            2 => {  // Top-left
+            2 => {
+                // Top-left
                 set_pixel_safe(buffer, screen_width, cx - x, cy - y, argb);
                 set_pixel_safe(buffer, screen_width, cx - y, cy - x, argb);
             }
-            3 => {  // Bottom-left
+            3 => {
+                // Bottom-left
                 set_pixel_safe(buffer, screen_width, cx - x, cy + y, argb);
                 set_pixel_safe(buffer, screen_width, cx - y, cy + x, argb);
             }
@@ -392,19 +468,23 @@ fn fill_corner_arc(
 
     while x >= y {
         match quadrant {
-            0 => {  // Bottom-right
+            0 => {
+                // Bottom-right
                 draw_hline_safe(buffer, screen_width, cx, cy + y, x as u32 + 1, argb);
                 draw_hline_safe(buffer, screen_width, cx, cy + x, y as u32 + 1, argb);
             }
-            1 => {  // Top-right
+            1 => {
+                // Top-right
                 draw_hline_safe(buffer, screen_width, cx, cy - y, x as u32 + 1, argb);
                 draw_hline_safe(buffer, screen_width, cx, cy - x, y as u32 + 1, argb);
             }
-            2 => {  // Top-left
+            2 => {
+                // Top-left
                 draw_hline_safe(buffer, screen_width, cx - x, cy - y, x as u32 + 1, argb);
                 draw_hline_safe(buffer, screen_width, cx - y, cy - x, y as u32 + 1, argb);
             }
-            3 => {  // Bottom-left
+            3 => {
+                // Bottom-left
                 draw_hline_safe(buffer, screen_width, cx - x, cy + y, x as u32 + 1, argb);
                 draw_hline_safe(buffer, screen_width, cx - y, cy + x, y as u32 + 1, argb);
             }
@@ -472,9 +552,15 @@ pub fn fill_triangle(
     color: Color,
 ) {
     // Sort points by y-coordinate
-    if p1.y > p2.y { core::mem::swap(&mut p1, &mut p2); }
-    if p1.y > p3.y { core::mem::swap(&mut p1, &mut p3); }
-    if p2.y > p3.y { core::mem::swap(&mut p2, &mut p3); }
+    if p1.y > p2.y {
+        core::mem::swap(&mut p1, &mut p2);
+    }
+    if p1.y > p3.y {
+        core::mem::swap(&mut p1, &mut p3);
+    }
+    if p2.y > p3.y {
+        core::mem::swap(&mut p2, &mut p3);
+    }
 
     let argb = color.to_argb();
 
@@ -485,10 +571,7 @@ pub fn fill_triangle(
         fill_top_flat_triangle(buffer, screen_width, p1, p2, p3, argb);
     } else {
         // Split into two triangles
-        let p4 = Point::new(
-            p1.x + ((p2.y - p1.y) * (p3.x - p1.x)) / (p3.y - p1.y),
-            p2.y,
-        );
+        let p4 = Point::new(p1.x + ((p2.y - p1.y) * (p3.x - p1.x)) / (p3.y - p1.y), p2.y);
         fill_bottom_flat_triangle(buffer, screen_width, p1, p2, p4, argb);
         fill_top_flat_triangle(buffer, screen_width, p2, p4, p3, argb);
     }
@@ -513,7 +596,14 @@ fn fill_bottom_flat_triangle(
         let x2 = curx2 as i32;
         let (start, end) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
 
-        draw_hline_safe(buffer, screen_width, start, y, (end - start + 1) as u32, argb);
+        draw_hline_safe(
+            buffer,
+            screen_width,
+            start,
+            y,
+            (end - start + 1) as u32,
+            argb,
+        );
 
         curx1 += invslope1;
         curx2 += invslope2;
@@ -539,7 +629,14 @@ fn fill_top_flat_triangle(
         let x2 = curx2 as i32;
         let (start, end) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
 
-        draw_hline_safe(buffer, screen_width, start, y, (end - start + 1) as u32, argb);
+        draw_hline_safe(
+            buffer,
+            screen_width,
+            start,
+            y,
+            (end - start + 1) as u32,
+            argb,
+        );
 
         curx1 -= invslope1;
         curx2 -= invslope2;

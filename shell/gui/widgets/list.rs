@@ -1,13 +1,13 @@
 //! ListView Widget
 
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::boxed::Box;
 
-use crate::gui::{Rect, Color};
+use super::Widget;
 use crate::gui::input::MouseButton;
 use crate::gui::theme::Theme;
-use super::Widget;
+use crate::gui::{Color, Rect};
 
 /// List item
 pub struct ListItem {

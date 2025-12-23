@@ -5,10 +5,10 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-pub mod fs;
-pub mod system;
 pub mod ai;
+pub mod fs;
 pub mod pkg;
+pub mod system;
 
 /// Command execution result
 #[derive(Debug)]
@@ -63,9 +63,7 @@ impl CommandRegistry {
 
     /// Find a command by name
     pub fn find(&self, name: &str) -> Option<&'static dyn Command> {
-        self.commands.iter()
-            .find(|c| c.name() == name)
-            .copied()
+        self.commands.iter().find(|c| c.name() == name).copied()
     }
 
     /// Get all commands
@@ -75,7 +73,8 @@ impl CommandRegistry {
 
     /// Tab complete a partial command
     pub fn complete(&self, partial: &str) -> Vec<String> {
-        self.commands.iter()
+        self.commands
+            .iter()
             .filter(|c| c.name().starts_with(partial))
             .map(|c| String::from(c.name()))
             .collect()
@@ -94,9 +93,15 @@ impl Default for CommandRegistry {
 pub struct HelpCommand;
 
 impl Command for HelpCommand {
-    fn name(&self) -> &'static str { "help" }
-    fn description(&self) -> &'static str { "Show help information" }
-    fn usage(&self) -> &'static str { "help [command]" }
+    fn name(&self) -> &'static str {
+        "help"
+    }
+    fn description(&self) -> &'static str {
+        "Show help information"
+    }
+    fn usage(&self) -> &'static str {
+        "help [command]"
+    }
 
     fn execute(&self, _args: &[String]) -> CommandResult {
         CommandResult::Success(Some(String::from(
@@ -111,7 +116,7 @@ impl Command for HelpCommand {
              top      - System monitor\n\
              ai       - AI assistant\n\
              pkg      - Package manager\n\
-             exit     - Exit shell"
+             exit     - Exit shell",
         )))
     }
 }
@@ -120,9 +125,15 @@ impl Command for HelpCommand {
 pub struct ClearCommand;
 
 impl Command for ClearCommand {
-    fn name(&self) -> &'static str { "clear" }
-    fn description(&self) -> &'static str { "Clear the screen" }
-    fn usage(&self) -> &'static str { "clear" }
+    fn name(&self) -> &'static str {
+        "clear"
+    }
+    fn description(&self) -> &'static str {
+        "Clear the screen"
+    }
+    fn usage(&self) -> &'static str {
+        "clear"
+    }
 
     fn execute(&self, _args: &[String]) -> CommandResult {
         // Send ANSI clear sequence
@@ -134,9 +145,15 @@ impl Command for ClearCommand {
 pub struct EchoCommand;
 
 impl Command for EchoCommand {
-    fn name(&self) -> &'static str { "echo" }
-    fn description(&self) -> &'static str { "Display a line of text" }
-    fn usage(&self) -> &'static str { "echo [text...]" }
+    fn name(&self) -> &'static str {
+        "echo"
+    }
+    fn description(&self) -> &'static str {
+        "Display a line of text"
+    }
+    fn usage(&self) -> &'static str {
+        "echo [text...]"
+    }
 
     fn execute(&self, args: &[String]) -> CommandResult {
         CommandResult::Success(Some(args.join(" ")))
@@ -147,9 +164,15 @@ impl Command for EchoCommand {
 pub struct ExitCommand;
 
 impl Command for ExitCommand {
-    fn name(&self) -> &'static str { "exit" }
-    fn description(&self) -> &'static str { "Exit the shell" }
-    fn usage(&self) -> &'static str { "exit" }
+    fn name(&self) -> &'static str {
+        "exit"
+    }
+    fn description(&self) -> &'static str {
+        "Exit the shell"
+    }
+    fn usage(&self) -> &'static str {
+        "exit"
+    }
 
     fn execute(&self, _args: &[String]) -> CommandResult {
         CommandResult::Exit
@@ -160,9 +183,15 @@ impl Command for ExitCommand {
 pub struct PwdCommand;
 
 impl Command for PwdCommand {
-    fn name(&self) -> &'static str { "pwd" }
-    fn description(&self) -> &'static str { "Print working directory" }
-    fn usage(&self) -> &'static str { "pwd" }
+    fn name(&self) -> &'static str {
+        "pwd"
+    }
+    fn description(&self) -> &'static str {
+        "Print working directory"
+    }
+    fn usage(&self) -> &'static str {
+        "pwd"
+    }
 
     fn execute(&self, _args: &[String]) -> CommandResult {
         // TODO: Get actual working directory
@@ -174,9 +203,15 @@ impl Command for PwdCommand {
 pub struct EnvCommand;
 
 impl Command for EnvCommand {
-    fn name(&self) -> &'static str { "env" }
-    fn description(&self) -> &'static str { "Display environment variables" }
-    fn usage(&self) -> &'static str { "env" }
+    fn name(&self) -> &'static str {
+        "env"
+    }
+    fn description(&self) -> &'static str {
+        "Display environment variables"
+    }
+    fn usage(&self) -> &'static str {
+        "env"
+    }
 
     fn execute(&self, _args: &[String]) -> CommandResult {
         CommandResult::Success(Some(String::from(
@@ -184,7 +219,7 @@ impl Command for EnvCommand {
              HOME=/home/user\n\
              SHELL=/bin/hush\n\
              TERM=hublab-tui\n\
-             LANG=en_US.UTF-8"
+             LANG=en_US.UTF-8",
         )))
     }
 }

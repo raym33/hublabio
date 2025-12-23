@@ -65,7 +65,7 @@ impl Theme {
             content_bg: Color::new(255, 30, 30, 35),
             text_primary: Color::new(255, 230, 230, 235),
             text_secondary: Color::new(255, 150, 150, 155),
-            accent: Color::new(255, 100, 149, 237),  // Cornflower blue
+            accent: Color::new(255, 100, 149, 237), // Cornflower blue
             button_bg: Color::new(255, 55, 55, 60),
             button_hover: Color::new(255, 70, 70, 80),
             button_pressed: Color::new(255, 45, 45, 50),
@@ -152,7 +152,7 @@ impl Theme {
             content_bg: Color::new(255, 25, 18, 35),
             text_primary: Color::new(255, 230, 225, 245),
             text_secondary: Color::new(255, 150, 140, 170),
-            accent: Color::new(255, 147, 112, 219),  // Medium purple
+            accent: Color::new(255, 147, 112, 219), // Medium purple
             button_bg: Color::new(255, 50, 35, 70),
             button_hover: Color::new(255, 70, 50, 100),
             button_pressed: Color::new(255, 40, 28, 55),
@@ -231,11 +231,23 @@ impl ThemeManager {
     /// Set theme by name
     pub fn set_by_name(&mut self, name: &str) -> bool {
         match name {
-            "dark" => { self.set_dark(); true }
-            "light" => { self.set_light(); true }
-            "high_contrast" => { self.set_high_contrast(); true }
-            "ai_purple" => { self.set_ai_purple(); true }
-            _ => false
+            "dark" => {
+                self.set_dark();
+                true
+            }
+            "light" => {
+                self.set_light();
+                true
+            }
+            "high_contrast" => {
+                self.set_high_contrast();
+                true
+            }
+            "ai_purple" => {
+                self.set_ai_purple();
+                true
+            }
+            _ => false,
         }
     }
 }

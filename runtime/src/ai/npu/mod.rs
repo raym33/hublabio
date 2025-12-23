@@ -3,8 +3,8 @@
 //! Hardware acceleration for AI inference using NPU/AI accelerators.
 //! Supports Raspberry Pi AI Kit (Hailo-8L), EdgeTPU, and other accelerators.
 
-pub mod hailo;
 pub mod backend;
+pub mod hailo;
 
 pub use backend::*;
 pub use hailo::*;
@@ -129,7 +129,8 @@ pub fn detect_devices() -> Vec<NpuInfo> {
 pub fn select_best_device(required_tops: f32, model_size: usize) -> Option<NpuInfo> {
     let devices = detect_devices();
 
-    devices.into_iter()
+    devices
+        .into_iter()
         .filter(|d| d.tops >= required_tops && d.memory >= model_size)
         .max_by(|a, b| a.tops.partial_cmp(&b.tops).unwrap())
 }

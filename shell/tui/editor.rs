@@ -314,9 +314,8 @@ impl LineEditor {
 
     /// Get selected text
     pub fn selected_text(&self) -> Option<String> {
-        self.selection().map(|(start, end)| {
-            self.buffer[start..end].iter().collect()
-        })
+        self.selection()
+            .map(|(start, end)| self.buffer[start..end].iter().collect())
     }
 
     /// Delete selection
@@ -449,7 +448,8 @@ impl LineEditor {
 
     /// Search history for pattern
     pub fn history_search(&self, pattern: &str) -> Vec<&String> {
-        self.history.iter()
+        self.history
+            .iter()
             .filter(|s| s.contains(pattern))
             .collect()
     }

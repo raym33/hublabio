@@ -2,14 +2,14 @@
 //!
 //! Domain Name System client for hostname resolution.
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::collections::BTreeMap;
 use spin::Mutex;
 
-use super::{Ipv4Address, NetError};
-use super::udp;
 use super::tcp::SocketAddr;
+use super::udp;
+use super::{Ipv4Address, NetError};
 
 /// DNS port
 pub const DNS_PORT: u16 = 53;
@@ -17,24 +17,24 @@ pub const DNS_PORT: u16 = 53;
 /// DNS record types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RecordType {
-    A = 1,        // IPv4 address
-    NS = 2,       // Name server
-    CNAME = 5,    // Canonical name
-    SOA = 6,      // Start of authority
-    PTR = 12,     // Pointer (reverse lookup)
-    MX = 15,      // Mail exchange
-    TXT = 16,     // Text record
-    AAAA = 28,    // IPv6 address
-    SRV = 33,     // Service record
+    A = 1,     // IPv4 address
+    NS = 2,    // Name server
+    CNAME = 5, // Canonical name
+    SOA = 6,   // Start of authority
+    PTR = 12,  // Pointer (reverse lookup)
+    MX = 15,   // Mail exchange
+    TXT = 16,  // Text record
+    AAAA = 28, // IPv6 address
+    SRV = 33,  // Service record
 }
 
 /// DNS query class
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RecordClass {
-    IN = 1,   // Internet
-    CS = 2,   // CSNET
-    CH = 3,   // CHAOS
-    HS = 4,   // Hesiod
+    IN = 1, // Internet
+    CS = 2, // CSNET
+    CH = 3, // CHAOS
+    HS = 4, // Hesiod
 }
 
 /// DNS response code
@@ -43,7 +43,7 @@ pub enum ResponseCode {
     NoError = 0,
     FormatError = 1,
     ServerFailure = 2,
-    NameError = 3,    // NXDOMAIN
+    NameError = 3, // NXDOMAIN
     NotImplemented = 4,
     Refused = 5,
 }
@@ -54,10 +54,10 @@ pub enum ResponseCode {
 struct DnsHeader {
     id: u16,
     flags: u16,
-    qdcount: u16,  // Question count
-    ancount: u16,  // Answer count
-    nscount: u16,  // Authority count
-    arcount: u16,  // Additional count
+    qdcount: u16, // Question count
+    ancount: u16, // Answer count
+    nscount: u16, // Authority count
+    arcount: u16, // Additional count
 }
 
 impl DnsHeader {
@@ -109,11 +109,19 @@ pub enum DnsRecordData {
     A(Ipv4Address),
     AAAA([u8; 16]),
     CNAME(String),
-    MX { priority: u16, exchange: String },
+    MX {
+        priority: u16,
+        exchange: String,
+    },
     TXT(String),
     NS(String),
     PTR(String),
-    SRV { priority: u16, weight: u16, port: u16, target: String },
+    SRV {
+        priority: u16,
+        weight: u16,
+        port: u16,
+        target: String,
+    },
     Unknown(Vec<u8>),
 }
 
@@ -254,9 +262,7 @@ fn parse_response(data: &[u8]) -> Result<Vec<DnsRecord>, NetError> {
         return Err(NetError::InvalidData);
     }
 
-    let header: DnsHeader = unsafe {
-        core::ptr::read_unaligned(data.as_ptr() as *const DnsHeader)
-    };
+    let header: DnsHeader = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const DnsHeader) };
 
     if !header.is_response() {
         return Err(NetError::InvalidData);
@@ -288,7 +294,12 @@ fn parse_response(data: &[u8]) -> Result<Vec<DnsRecord>, NetError> {
 
         let rtype = u16::from_be_bytes([data[offset], data[offset + 1]]);
         let rclass = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
-        let ttl = u32::from_be_bytes([data[offset + 4], data[offset + 5], data[offset + 6], data[offset + 7]]);
+        let ttl = u32::from_be_bytes([
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]);
         let rdlength = u16::from_be_bytes([data[offset + 8], data[offset + 9]]) as usize;
         offset += 10;
 
@@ -365,7 +376,12 @@ fn parse_response(data: &[u8]) -> Result<Vec<DnsRecord>, NetError> {
                     let port = u16::from_be_bytes([rdata[4], rdata[5]]);
                     let mut name_offset = offset + 6;
                     match decode_name(data, &mut name_offset) {
-                        Ok(target) => DnsRecordData::SRV { priority, weight, port, target },
+                        Ok(target) => DnsRecordData::SRV {
+                            priority,
+                            weight,
+                            port,
+                            target,
+                        },
                         Err(_) => DnsRecordData::Unknown(rdata.to_vec()),
                     }
                 } else {
@@ -405,7 +421,10 @@ pub fn resolve(hostname: &str) -> Result<Ipv4Address, NetError> {
 
     // Get DNS server
     let servers = DNS_SERVERS.lock();
-    let server = servers.first().cloned().unwrap_or(Ipv4Address::new(8, 8, 8, 8));
+    let server = servers
+        .first()
+        .cloned()
+        .unwrap_or(Ipv4Address::new(8, 8, 8, 8));
     drop(servers);
 
     // Build query
@@ -429,10 +448,13 @@ pub fn resolve(hostname: &str) -> Result<Ipv4Address, NetError> {
     if !records.is_empty() {
         let ttl = records.first().map(|r| r.ttl).unwrap_or(300);
         let mut cache = DNS_CACHE.lock();
-        cache.insert(String::from(hostname), CacheEntry {
-            records: records.clone(),
-            expires_at: 0, // Would use system time + TTL
-        });
+        cache.insert(
+            String::from(hostname),
+            CacheEntry {
+                records: records.clone(),
+                expires_at: 0, // Would use system time + TTL
+            },
+        );
     }
 
     // Return first A record
@@ -466,7 +488,10 @@ pub fn resolve_all(hostname: &str) -> Result<Vec<Ipv4Address>, NetError> {
 
     // Query DNS server
     let servers = DNS_SERVERS.lock();
-    let server = servers.first().cloned().unwrap_or(Ipv4Address::new(8, 8, 8, 8));
+    let server = servers
+        .first()
+        .cloned()
+        .unwrap_or(Ipv4Address::new(8, 8, 8, 8));
     drop(servers);
 
     let query = build_query(hostname, RecordType::A);
@@ -500,13 +525,19 @@ pub fn reverse_lookup(addr: Ipv4Address) -> Result<String, NetError> {
     // Build reverse lookup name
     let name = alloc::format!(
         "{}.{}.{}.{}.in-addr.arpa",
-        addr.0[3], addr.0[2], addr.0[1], addr.0[0]
+        addr.0[3],
+        addr.0[2],
+        addr.0[1],
+        addr.0[0]
     );
 
     let query = build_query(&name, RecordType::PTR);
 
     let servers = DNS_SERVERS.lock();
-    let server = servers.first().cloned().unwrap_or(Ipv4Address::new(8, 8, 8, 8));
+    let server = servers
+        .first()
+        .cloned()
+        .unwrap_or(Ipv4Address::new(8, 8, 8, 8));
     drop(servers);
 
     let local = SocketAddr::new(Ipv4Address::UNSPECIFIED, 0);
@@ -536,9 +567,9 @@ pub fn clear_cache() {
 /// Initialize DNS resolver
 pub fn init() {
     // Add default DNS servers
-    add_server(Ipv4Address::new(8, 8, 8, 8));      // Google DNS
-    add_server(Ipv4Address::new(8, 8, 4, 4));      // Google DNS secondary
-    add_server(Ipv4Address::new(1, 1, 1, 1));      // Cloudflare DNS
+    add_server(Ipv4Address::new(8, 8, 8, 8)); // Google DNS
+    add_server(Ipv4Address::new(8, 8, 4, 4)); // Google DNS secondary
+    add_server(Ipv4Address::new(1, 1, 1, 1)); // Cloudflare DNS
 
     crate::kprintln!("  DNS resolver initialized");
 }

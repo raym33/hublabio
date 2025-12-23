@@ -2,16 +2,15 @@
 //!
 //! Device detection, configuration, and driver binding.
 
-use alloc::vec::Vec;
 use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 
-use super::{
-    UsbDevice, UsbError, UsbSpeed, DeviceState, DeviceDescriptor,
-    Configuration, Interface, Endpoint, UsbClass, EndpointType, Direction,
-    SetupPacket, allocate_address, register_device,
-};
 use super::hcd::{get_controller, PortStatus};
+use super::{
+    allocate_address, register_device, Configuration, DeviceDescriptor, DeviceState, Direction,
+    Endpoint, EndpointType, Interface, SetupPacket, UsbClass, UsbDevice, UsbError, UsbSpeed,
+};
 
 /// Descriptor types
 mod descriptor_type {
@@ -211,19 +210,25 @@ pub fn enumerate_device(port: u8) -> Result<Arc<UsbDevice>, UsbError> {
 
     // Get full device descriptor
     let setup = SetupPacket::get_device_descriptor();
-    controller.lock().control_transfer(address, setup, &mut buf)?;
+    controller
+        .lock()
+        .control_transfer(address, setup, &mut buf)?;
 
     let descriptor = parse_device_descriptor(&buf)?;
 
     // Get configuration descriptor
     let mut config_buf = [0u8; 9];
     let setup = SetupPacket::get_config_descriptor(0, 9);
-    controller.lock().control_transfer(address, setup, &mut config_buf)?;
+    controller
+        .lock()
+        .control_transfer(address, setup, &mut config_buf)?;
 
     let total_length = u16::from_le_bytes([config_buf[2], config_buf[3]]) as usize;
     let mut config_full = alloc::vec![0u8; total_length];
     let setup = SetupPacket::get_config_descriptor(0, total_length as u16);
-    controller.lock().control_transfer(address, setup, &mut config_full)?;
+    controller
+        .lock()
+        .control_transfer(address, setup, &mut config_full)?;
 
     let configuration = parse_configuration(&config_full)?;
 
@@ -255,11 +260,17 @@ pub fn configure_device(device: &UsbDevice) -> Result<(), UsbError> {
 
     let controller = get_controller().ok_or(UsbError::NoDevice)?;
     let setup = SetupPacket::set_configuration(config_value);
-    controller.lock().control_transfer(device.address, setup, &mut [])?;
+    controller
+        .lock()
+        .control_transfer(device.address, setup, &mut [])?;
 
     device.set_configuration(config_value)?;
 
-    crate::kinfo!("USB: Device {} configured with config {}", device.address, config_value);
+    crate::kinfo!(
+        "USB: Device {} configured with config {}",
+        device.address,
+        config_value
+    );
 
     Ok(())
 }
