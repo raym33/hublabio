@@ -1,0 +1,16 @@
+[package]
+name = "hublabio-sdk"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "SDK for building HubLab IO applications"
+
+[dependencies]
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.0", default-features = false, features = ["alloc"] }
+
+[features]
+default = ["std"]
+std = []
+no_std = []

@@ -1,0 +1,45 @@
+# Build artifacts
+/target/
+/out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug
+*.log
+*.pdb
+
+# Temporary files
+*.tmp
+*.temp
+
+# Generated documentation
+/doc/
+
+# Rust specific
+**/*.rs.bk
+Cargo.lock
+
+# AI models (too large for git)
+*.gguf
+*.ggml
+*.bin
+*.safetensors
+models/
+
+# Disk images
+*.img
+*.iso
+*.dmg
+
+# Core dumps
+core
+*.core

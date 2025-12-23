@@ -1,0 +1,21 @@
+[package]
+name = "hublabio-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+spin = "0.9"
+log = "0.4"
+safetensors = { version = "0.4", default-features = false }
+half = "2.3"
+byteorder = "1.5"
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+
+[features]
+default = ["gguf"]
+gguf = []
+safetensors = []
+distributed = []
+moe = []

@@ -1,0 +1,51 @@
+[workspace]
+resolver = "2"
+members = [
+    "kernel",
+    "runtime",
+    "shell",
+    "hal",
+    "services/*",
+    "apps/*",
+    "sdk",
+    "tools/*",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["HubLab IO Team"]
+license = "MIT"
+repository = "https://github.com/raym33/hublabio"
+
+[workspace.dependencies]
+# Core
+spin = "0.9"
+bitflags = "2.4"
+log = "0.4"
+linked_list_allocator = "0.10"
+
+# AI Runtime
+safetensors = "0.4"
+half = "2.3"
+byteorder = "1.5"
+
+# Async
+futures = { version = "0.3", default-features = false, features = ["alloc"] }
+
+# Serialization
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.0", default-features = false, features = ["alloc"] }
+
+# Crypto
+sha2 = { version = "0.10", default-features = false }
+ed25519-dalek = { version = "2.1", default-features = false }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
