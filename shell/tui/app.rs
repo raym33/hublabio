@@ -208,19 +208,19 @@ impl Default for SystemStatus {
 /// TUI Application state
 pub struct TuiApp {
     /// Terminal width
-    width: u16,
+    pub width: u16,
     /// Terminal height
-    height: u16,
+    pub height: u16,
     /// Current theme
-    theme: Theme,
+    pub theme: Theme,
     /// System status
-    status: SystemStatus,
+    pub status: SystemStatus,
     /// Selected app index
-    selected_app: usize,
+    pub selected_app: usize,
     /// Current screen
-    current_screen: Screen,
+    pub current_screen: Screen,
     /// AI chat history
-    chat_history: Vec<ChatMessage>,
+    pub chat_history: Vec<ChatMessage>,
     /// Is running
     running: bool,
 }

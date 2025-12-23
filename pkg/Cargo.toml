@@ -1,18 +1,16 @@
 [package]
-name = "hublabio-shell"
+name = "hublabio-pkg"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+description = "HubLab IO Package Manager"
 
 [dependencies]
-spin = "0.9"
 log = "0.4"
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
-bitflags = "2.4"
 
 [features]
-default = ["tui"]
-tui = []
-voice = []
-gui = []
+default = ["manager", "repo"]
+manager = []
+repo = []

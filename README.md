@@ -680,8 +680,7 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] Platform detection (Pi 3/4/5, QEMU)
 - [x] Device tree parsing
 - [x] AI runtime (GGML inference)
-- [x] TUI shell
-- [x] Basic apps (files, terminal, settings)
+- [x] TUI shell with themes
 - [x] Network stack (Ethernet, TCP/IP, UDP, DHCP)
 - [x] Persistent storage (FAT32, ext4, ramfs)
 - [x] BSD-style socket API
@@ -705,17 +704,24 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] Block cache with LRU eviction
 - [x] SMP multi-core support
 - [x] Full ext4 read/write with journaling
+- [x] GUI compositor with window management
+- [x] Voice interface (Whisper STT, Piper TTS)
+- [x] File Manager application
+- [x] System Monitor application
+- [x] Settings application
+- [x] TUI improvements (line editing, scrolling, input handling)
+- [x] Package Manager with repository support
 
 ### In Progress
 - [ ] Real hardware testing on Raspberry Pi
 
 ### Planned
-- [ ] GUI compositor
 - [ ] MoE-R distributed experts
 - [ ] NPU acceleration (RPi AI Kit)
 - [ ] Smartphone bootloader
 - [ ] App marketplace
 - [ ] OTA updates
+- [ ] Web browser
 
 ---
 
@@ -818,8 +824,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | ELF Execution | **Complete** | Binary loading, execution |
 | Timers | **Complete** | System timers, ARM generic timer |
 | Interrupts | **Complete** | GIC interrupt controller |
-| Shell (TUI) | Working | Basic commands, themes |
-| Shell (Voice) | Not started | Planned for future |
+| Shell (TUI) | **Complete** | Commands, themes, line editing, scrolling |
+| Shell (GUI) | **Complete** | Window compositor, widgets, rendering |
+| Shell (Voice) | **Complete** | Whisper STT, Piper TTS, wake word |
+| File Manager | **Complete** | Navigation, clipboard, bookmarks, search |
+| System Monitor | **Complete** | CPU, memory, processes, network stats |
+| Settings App | **Complete** | System preferences, display, sound, AI |
+| Package Manager | **Complete** | Install/remove, repositories, dependencies |
 | Real Hardware | Ready to test | Drivers for Pi 3/4/5 implemented |
 
 **What works today:**
@@ -862,10 +873,14 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **What doesn't work yet:**
 - Real hardware boot (needs testing on actual Pi)
-- GUI compositor
-- Voice interface
+- MoE-R distributed experts (in development)
+- NPU acceleration
 
 See [PROTOTYPE.md](docs/PROTOTYPE.md) for complete details.
+
+For training custom AI models, see [MODEL_TRAINING.md](docs/MODEL_TRAINING.md).
+
+For details on Jupiter-derived code (MoE-R, distributed inference), see [JUPITER_INTEGRATION.md](docs/JUPITER_INTEGRATION.md).
 
 ---
 
@@ -934,6 +949,71 @@ while let Some(msg) = server.try_receive() {
     println!("Got: {:?}", msg);
     server.send(0xFFFF_0000, b"OK")?;
 }
+```
+
+### Package Manager
+
+```bash
+# Update package lists
+hublab> pkg update
+Updated. 15 packages available.
+
+# Search for packages
+hublab> pkg search ai
+qwen2-0.5b-1.0.0 - Qwen2 0.5B Language Model
+whisper-tiny-1.0.0 - Whisper Tiny Speech Recognition
+piper-tts-1.0.0 - Piper Text-to-Speech
+
+# Install a package
+hublab> pkg install qwen2-0.5b
+Installed: qwen2-0.5b
+
+# Show package info
+hublab> pkg show piper-tts
+Package: piper-tts
+Version: 1.0.0
+Category: ai
+Description: Piper Text-to-Speech
+```
+
+### Voice Interface
+
+```rust
+use shell::voice::{SpeechRecognizer, TextToSpeech, WakeWordDetector};
+
+// Wake word detection
+let mut detector = WakeWordDetector::new("hey hublab");
+detector.process_audio(&audio_buffer);
+
+if detector.detected() {
+    // Start speech recognition
+    let recognizer = SpeechRecognizer::new();
+    let transcript = recognizer.recognize(&audio)?;
+    println!("User said: {}", transcript);
+
+    // Generate AI response and speak it
+    let response = ai.generate(&transcript)?;
+    let tts = PiperTts::new();
+    let audio = tts.synthesize(&response, &config)?;
+    audio_output.play(&audio);
+}
+```
+
+### GUI Application
+
+```rust
+use shell::gui::{Compositor, Window, Widget, Button, Label};
+
+// Create compositor
+let mut compositor = Compositor::new(1920, 1080);
+
+// Create a window
+let mut window = Window::new(100, 100, 400, 300, "My App");
+window.add_widget(Label::new(10, 10, "Hello, HubLab IO!"));
+window.add_widget(Button::new(10, 50, 100, 40, "Click Me"));
+
+compositor.add_window(window);
+compositor.render(&mut framebuffer);
 ```
 
 ---

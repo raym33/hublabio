@@ -7,7 +7,18 @@
 
 extern crate alloc;
 
+#[cfg(feature = "tui")]
+#[path = "../tui/mod.rs"]
 pub mod tui;
+
+#[cfg(feature = "gui")]
+#[path = "../gui/mod.rs"]
+pub mod gui;
+
+#[cfg(feature = "voice")]
+#[path = "../voice/mod.rs"]
+pub mod voice;
+
 pub mod commands;
 pub mod ai_chat;
 pub mod themes;

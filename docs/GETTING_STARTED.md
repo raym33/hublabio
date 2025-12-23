@@ -9,6 +9,7 @@ This guide will help you set up HubLab IO on your Raspberry Pi or other ARM devi
 - MicroSD card (32GB+ recommended)
 - USB-C power supply
 - HDMI display or serial console
+- Optional: USB microphone and speakers for voice interface
 
 ### Software
 - Rust nightly toolchain
@@ -138,6 +139,22 @@ ps
 exit
 ```
 
+### Theme Switching
+
+```bash
+# Change to AMOLED theme
+hublab> theme amoled
+Theme set to: amoled
+
+# Change to light theme
+hublab> theme light
+Theme set to: light
+
+# Change back to Material Dark
+hublab> theme material-dark
+Theme set to: material-dark
+```
+
 ### AI Chat
 
 Start an AI chat session:
@@ -153,7 +170,10 @@ ai
 ### Package Manager
 
 ```bash
-# List installed packages
+# Update package lists
+pkg update
+
+# List available packages
 pkg list
 
 # Search for packages
@@ -161,6 +181,89 @@ pkg search editor
 
 # Install a package
 pkg install nano
+
+# Show package info
+pkg show qwen2-0.5b
+
+# List installed packages
+pkg list-installed
+
+# Remove a package
+pkg remove nano
+```
+
+### Voice Commands
+
+If you have a microphone connected:
+
+```bash
+# Say "Hey HubLab" to activate
+# Then speak your command
+
+# Example voice commands:
+# "Open file manager"
+# "What's the weather like?"
+# "Set brightness to 50 percent"
+```
+
+### Using the GUI
+
+```bash
+# Launch GUI mode
+gui
+
+# Navigation:
+# - Use arrow keys or touch to navigate
+# - Click/tap to select apps
+# - Swipe down for notifications
+```
+
+## System Apps
+
+### File Manager
+
+```bash
+# Open file manager
+files
+
+# Keyboard shortcuts:
+# Enter    - Open file/folder
+# Backspace - Go back
+# Ctrl+C   - Copy
+# Ctrl+V   - Paste
+# Ctrl+X   - Cut
+# Del      - Delete
+# Ctrl+B   - Add bookmark
+# /        - Search
+```
+
+### System Monitor
+
+```bash
+# Open system monitor
+monitor
+
+# Views:
+# 1 - CPU usage
+# 2 - Memory usage
+# 3 - Processes
+# 4 - Network
+# 5 - Disk
+```
+
+### Settings
+
+```bash
+# Open settings
+settings
+
+# Categories:
+# - General (hostname, timezone, locale)
+# - Display (brightness, theme, font size)
+# - Sound (volume, TTS voice)
+# - Network (WiFi, Bluetooth)
+# - AI (model, temperature, context)
+# - Security (password, encryption)
 ```
 
 ## Development
@@ -205,6 +308,29 @@ fn main() -> Result<()> {
 cargo build --target aarch64-unknown-none
 ```
 
+### Using the Package Manager API
+
+```rust
+use hublabio_pkg::{PackageManager, init};
+
+fn main() {
+    // Initialize package manager
+    let mut pm = init("/");
+
+    // Update package lists
+    pm.update().expect("Update failed");
+
+    // Search for packages
+    let results = pm.search("ai");
+    for pkg in results {
+        println!("{} - {}", pkg.full_name(), pkg.description);
+    }
+
+    // Install a package
+    pm.install("qwen2-0.5b").expect("Install failed");
+}
+```
+
 ### Debugging
 
 ```bash
@@ -234,6 +360,11 @@ model_path = "/models/scheduler.gguf"
 [display]
 resolution = "1920x1080"
 theme = "material-dark"
+
+[voice]
+wake_word = "hey hublab"
+stt_engine = "whisper"
+tts_engine = "piper"
 ```
 
 ### AI Models
@@ -243,6 +374,8 @@ Place GGUF models in `/models/`:
 /models/
 ├── scheduler.gguf      # Scheduler AI (1M params)
 ├── chat.gguf          # Chat assistant
+├── whisper-tiny.bin   # Speech recognition
+├── piper-en.onnx      # Text-to-speech
 └── embeddings.gguf    # For semantic search
 ```
 
@@ -263,8 +396,36 @@ Place GGUF models in `/models/`:
 - Check available memory
 - Verify model format (GGUF only)
 
+### Voice Not Responding
+- Check microphone connection
+- Verify audio drivers loaded
+- Try: `hublab> voice test`
+
+### Package Manager Errors
+- Run `pkg update` first
+- Check network connectivity
+- Verify repository URLs
+
 ## Next Steps
 
 - [Architecture Overview](ARCHITECTURE.md)
-- [SDK Documentation](SDK.md)
+- [Model Training Guide](MODEL_TRAINING.md) - Train custom 1B-8B models
+- [Jupiter Integration](JUPITER_INTEGRATION.md) - MoE-R and distributed AI code details
+- [Prototype Status](PROTOTYPE.md)
 - [Contributing Guide](../CONTRIBUTING.md)
+
+## Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `help` | Show available commands |
+| `version` | Show version info |
+| `theme <name>` | Change visual theme |
+| `?<query>` | Ask AI a question |
+| `pkg <cmd>` | Package management |
+| `files` | Open file manager |
+| `monitor` | Open system monitor |
+| `settings` | Open settings |
+| `gui` | Switch to GUI mode |
+| `voice` | Toggle voice control |
+| `exit` | Exit shell |
