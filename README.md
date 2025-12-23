@@ -691,6 +691,13 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] ARP protocol
 - [x] USB stack (DWC2, XHCI, device enumeration)
 - [x] Power management (CPU governors, sleep states)
+- [x] POSIX signals (SIGTERM, SIGKILL, SIGINT, etc.)
+- [x] Pipe and FIFO IPC
+- [x] TTY/PTY subsystem with termios
+- [x] Device nodes (/dev/null, /dev/zero, /dev/random)
+- [x] ELF64 binary execution
+- [x] System timers (ARM generic timer)
+- [x] GIC interrupt controller
 
 ### In Progress
 - [ ] Real hardware testing on Raspberry Pi
@@ -765,8 +772,15 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | **ext4 Driver** | Complete | ~350 | Read-only, inode parsing |
 | **RAM Filesystem** | Complete | ~200 | In-memory storage for /tmp |
 | **Block Device Layer** | Complete | ~350 | MBR/GPT partitions, device registry |
+| **Signal Handling** | Complete | ~400 | POSIX signals, signal delivery, handlers |
+| **Pipes/FIFOs** | Complete | ~300 | Anonymous pipes, named FIFOs |
+| **TTY/PTY** | Complete | ~450 | Terminal emulation, termios, PTY pairs |
+| **Device Nodes** | Complete | ~350 | /dev filesystem, char/block devices |
+| **ELF Execution** | Complete | ~300 | ELF64 loading, argc/argv/envp setup |
+| **System Timers** | Complete | ~400 | ARM generic timer, callbacks |
+| **GIC Controller** | Complete | ~400 | Interrupt controller, IRQ handling |
 
-**Total: ~13,000+ lines of Rust kernel code**
+**Total: ~16,000+ lines of Rust kernel code**
 
 ### System Components Status
 
@@ -783,6 +797,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | Filesystem | **Complete** | FAT32, ext4 (read), ramfs |
 | Block Devices | **Complete** | MBR/GPT partitions, RamDisk |
 | Power Management | **Complete** | CPU scaling, sleep states |
+| Signals | **Complete** | POSIX signal handling, delivery |
+| Pipes/FIFOs | **Complete** | IPC pipes, named FIFOs |
+| TTY/PTY | **Complete** | Terminal subsystem, termios |
+| Device Nodes | **Complete** | /dev filesystem |
+| ELF Execution | **Complete** | Binary loading, execution |
+| Timers | **Complete** | System timers, ARM generic timer |
+| Interrupts | **Complete** | GIC interrupt controller |
 | Shell (TUI) | Working | Basic commands, themes |
 | Shell (Voice) | Not started | Planned for future |
 | Real Hardware | Ready to test | Drivers for Pi 3/4/5 implemented |
@@ -810,6 +831,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - ext4 filesystem with read support
 - RAM filesystem for temporary storage
 - Block device layer with MBR/GPT partition support
+- POSIX signal handling (SIGTERM, SIGKILL, SIGINT, etc.)
+- Pipe and FIFO IPC for process communication
+- TTY/PTY subsystem with termios support
+- Device nodes (/dev/null, /dev/zero, /dev/random, etc.)
+- ELF64 binary loading and execution
+- System timers with ARM generic timer
+- GIC interrupt controller for ARM64
 - Boot in QEMU emulator
 
 **What doesn't work yet:**
