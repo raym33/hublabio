@@ -18,12 +18,15 @@ pub mod boot;
 pub mod capability;
 pub mod cgroup;
 pub mod console;
+pub mod coredump;
 pub mod cow;
 pub mod dev;
 pub mod drivers;
+pub mod epoll;
 pub mod exec;
 pub mod flock;
 pub mod fs;
+pub mod futex;
 pub mod init;
 pub mod ipc;
 pub mod memory;
@@ -35,12 +38,17 @@ pub mod pagefault;
 pub mod pipe;
 pub mod process;
 pub mod procfs;
+pub mod ptrace;
+pub mod random;
+pub mod rlimit;
 pub mod scheduler;
 pub mod seccomp;
+pub mod shell;
 pub mod signal;
 pub mod syscall;
 pub mod time;
 pub mod tty;
+pub mod unix_socket;
 pub mod vfs;
 pub mod waitqueue;
 pub mod watchdog;
@@ -254,6 +262,38 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Initialize watchdog
     kprintln!("[BOOT] Initializing watchdog...");
     watchdog::init();
+
+    // Initialize I/O multiplexing
+    kprintln!("[BOOT] Initializing I/O multiplexing...");
+    epoll::init();
+
+    // Initialize Unix domain sockets
+    kprintln!("[BOOT] Initializing Unix domain sockets...");
+    unix_socket::init();
+
+    // Initialize futex
+    kprintln!("[BOOT] Initializing futex...");
+    futex::init();
+
+    // Initialize ptrace
+    kprintln!("[BOOT] Initializing ptrace...");
+    ptrace::init();
+
+    // Initialize random/entropy
+    kprintln!("[BOOT] Initializing entropy pool...");
+    random::init();
+
+    // Initialize resource limits
+    kprintln!("[BOOT] Initializing resource limits...");
+    rlimit::init();
+
+    // Initialize kernel shell
+    kprintln!("[BOOT] Initializing kernel shell...");
+    shell::init();
+
+    // Initialize core dump support
+    kprintln!("[BOOT] Initializing core dump support...");
+    coredump::init();
 
     // Initialize hardware drivers
     kprintln!("[BOOT] Initializing hardware drivers...");

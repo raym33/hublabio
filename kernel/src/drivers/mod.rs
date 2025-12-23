@@ -8,12 +8,16 @@ pub mod framebuffer;
 pub mod dtb;
 pub mod usb;
 pub mod power;
+pub mod input;
+pub mod sdmmc;
 
 /// Initialize all drivers
 pub fn init() {
     crate::kprintln!("  Initializing drivers...");
     usb::init();
     power::init();
+    input::init();
+    sdmmc::init();
 }
 
 /// Driver trait that all drivers implement
