@@ -1,0 +1,354 @@
+//! Socket API
+//!
+//! BSD-style socket interface for applications.
+
+use alloc::vec::Vec;
+use core::sync::atomic::{AtomicU32, Ordering};
+use spin::Mutex;
+use alloc::collections::BTreeMap;
+
+use super::{Ipv4Address, NetError};
+use super::tcp::{self, SocketAddr};
+use super::udp;
+
+/// Socket descriptor counter
+static SOCKET_COUNTER: AtomicU32 = AtomicU32::new(3); // 0,1,2 reserved
+
+/// Socket types
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SocketType {
+    Stream,     // TCP
+    Datagram,   // UDP
+    Raw,        // Raw IP
+}
+
+/// Socket address family
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AddressFamily {
+    Inet,       // IPv4
+    Inet6,      // IPv6
+    Unix,       // Unix domain
+}
+
+/// Socket state
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SocketState {
+    Unbound,
+    Bound,
+    Listening,
+    Connected,
+    Closed,
+}
+
+/// Socket descriptor
+pub type SocketFd = u32;
+
+/// Socket
+struct Socket {
+    fd: SocketFd,
+    family: AddressFamily,
+    sock_type: SocketType,
+    state: SocketState,
+    local_addr: Option<SocketAddr>,
+    remote_addr: Option<SocketAddr>,
+    tcp_key: Option<tcp::ConnectionKey>,
+    blocking: bool,
+    recv_timeout: Option<u64>,
+    send_timeout: Option<u64>,
+}
+
+/// Open sockets
+static SOCKETS: Mutex<BTreeMap<SocketFd, Socket>> = Mutex::new(BTreeMap::new());
+
+/// Create a socket
+pub fn socket(family: AddressFamily, sock_type: SocketType) -> Result<SocketFd, NetError> {
+    let fd = SOCKET_COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let socket = Socket {
+        fd,
+        family,
+        sock_type,
+        state: SocketState::Unbound,
+        local_addr: None,
+        remote_addr: None,
+        tcp_key: None,
+        blocking: true,
+        recv_timeout: None,
+        send_timeout: None,
+    };
+
+    SOCKETS.lock().insert(fd, socket);
+
+    crate::kdebug!("socket() = {} ({:?}, {:?})", fd, family, sock_type);
+    Ok(fd)
+}
+
+/// Bind socket to address
+pub fn bind(fd: SocketFd, addr: SocketAddr) -> Result<(), NetError> {
+    let mut sockets = SOCKETS.lock();
+    let socket = sockets.get_mut(&fd).ok_or(NetError::NotInitialized)?;
+
+    if socket.state != SocketState::Unbound {
+        return Err(NetError::InvalidPacket);
+    }
+
+    match socket.sock_type {
+        SocketType::Datagram => {
+            udp::bind(addr)?;
+        }
+        SocketType::Stream => {
+            // TCP binding is implicit
+        }
+        _ => {}
+    }
+
+    socket.local_addr = Some(addr);
+    socket.state = SocketState::Bound;
+
+    crate::kdebug!("bind({}) = {}:{}", fd, addr.ip, addr.port);
+    Ok(())
+}
+
+/// Listen for connections (TCP only)
+pub fn listen(fd: SocketFd, backlog: u32) -> Result<(), NetError> {
+    let mut sockets = SOCKETS.lock();
+    let socket = sockets.get_mut(&fd).ok_or(NetError::NotInitialized)?;
+
+    if socket.sock_type != SocketType::Stream {
+        return Err(NetError::InvalidPacket);
+    }
+
+    let addr = socket.local_addr.ok_or(NetError::NotInitialized)?;
+    tcp::listen(addr)?;
+
+    socket.state = SocketState::Listening;
+
+    crate::kdebug!("listen({}, {})", fd, backlog);
+    Ok(())
+}
+
+/// Accept connection (TCP only)
+pub fn accept(fd: SocketFd) -> Result<(SocketFd, SocketAddr), NetError> {
+    let sockets = SOCKETS.lock();
+    let socket = sockets.get(&fd).ok_or(NetError::NotInitialized)?;
+
+    if socket.state != SocketState::Listening {
+        return Err(NetError::InvalidPacket);
+    }
+
+    // In a real implementation, this would wait for an incoming connection
+    // and return a new socket for that connection
+
+    Err(NetError::NotInitialized) // No pending connections
+}
+
+/// Connect to remote address
+pub fn connect(fd: SocketFd, addr: SocketAddr) -> Result<(), NetError> {
+    let mut sockets = SOCKETS.lock();
+    let socket = sockets.get_mut(&fd).ok_or(NetError::NotInitialized)?;
+
+    match socket.sock_type {
+        SocketType::Stream => {
+            let key = tcp::connect(addr)?;
+            socket.tcp_key = Some(key);
+            socket.remote_addr = Some(addr);
+            socket.state = SocketState::Connected;
+        }
+        SocketType::Datagram => {
+            // UDP "connect" just sets default destination
+            socket.remote_addr = Some(addr);
+            socket.state = SocketState::Connected;
+        }
+        _ => return Err(NetError::InvalidPacket),
+    }
+
+    crate::kdebug!("connect({}) -> {}:{}", fd, addr.ip, addr.port);
+    Ok(())
+}
+
+/// Send data on connected socket
+pub fn send(fd: SocketFd, data: &[u8]) -> Result<usize, NetError> {
+    let sockets = SOCKETS.lock();
+    let socket = sockets.get(&fd).ok_or(NetError::NotInitialized)?;
+
+    let remote = socket.remote_addr.ok_or(NetError::NotInitialized)?;
+
+    match socket.sock_type {
+        SocketType::Stream => {
+            let key = socket.tcp_key.as_ref().ok_or(NetError::NotInitialized)?;
+            tcp::send(key, data)
+        }
+        SocketType::Datagram => {
+            let local = socket.local_addr.unwrap_or(SocketAddr::new(
+                Ipv4Address::UNSPECIFIED,
+                super::tcp::allocate_port(),
+            ));
+            udp::send_to(local, remote, data)
+        }
+        _ => Err(NetError::InvalidPacket),
+    }
+}
+
+/// Receive data from connected socket
+pub fn recv(fd: SocketFd, buf: &mut [u8]) -> Result<usize, NetError> {
+    let sockets = SOCKETS.lock();
+    let socket = sockets.get(&fd).ok_or(NetError::NotInitialized)?;
+
+    match socket.sock_type {
+        SocketType::Stream => {
+            let key = socket.tcp_key.as_ref().ok_or(NetError::NotInitialized)?;
+            tcp::recv(key, buf)
+        }
+        SocketType::Datagram => {
+            let local = socket.local_addr.ok_or(NetError::NotInitialized)?;
+            if let Some(datagram) = udp::recv_from(&local) {
+                let len = datagram.data.len().min(buf.len());
+                buf[..len].copy_from_slice(&datagram.data[..len]);
+                Ok(len)
+            } else {
+                Ok(0)
+            }
+        }
+        _ => Err(NetError::InvalidPacket),
+    }
+}
+
+/// Send data to specific address (UDP)
+pub fn sendto(fd: SocketFd, data: &[u8], addr: SocketAddr) -> Result<usize, NetError> {
+    let sockets = SOCKETS.lock();
+    let socket = sockets.get(&fd).ok_or(NetError::NotInitialized)?;
+
+    if socket.sock_type != SocketType::Datagram {
+        return Err(NetError::InvalidPacket);
+    }
+
+    let local = socket.local_addr.unwrap_or(SocketAddr::new(
+        Ipv4Address::UNSPECIFIED,
+        0,
+    ));
+
+    udp::send_to(local, addr, data)
+}
+
+/// Receive data with sender address (UDP)
+pub fn recvfrom(fd: SocketFd, buf: &mut [u8]) -> Result<(usize, SocketAddr), NetError> {
+    let sockets = SOCKETS.lock();
+    let socket = sockets.get(&fd).ok_or(NetError::NotInitialized)?;
+
+    if socket.sock_type != SocketType::Datagram {
+        return Err(NetError::InvalidPacket);
+    }
+
+    let local = socket.local_addr.ok_or(NetError::NotInitialized)?;
+
+    if let Some(datagram) = udp::recv_from(&local) {
+        let len = datagram.data.len().min(buf.len());
+        buf[..len].copy_from_slice(&datagram.data[..len]);
+        Ok((len, datagram.from))
+    } else {
+        Err(NetError::NotInitialized)
+    }
+}
+
+/// Close socket
+pub fn close(fd: SocketFd) -> Result<(), NetError> {
+    let mut sockets = SOCKETS.lock();
+    let socket = sockets.remove(&fd).ok_or(NetError::NotInitialized)?;
+
+    match socket.sock_type {
+        SocketType::Stream => {
+            if let Some(key) = socket.tcp_key {
+                tcp::close(&key)?;
+            }
+        }
+        SocketType::Datagram => {
+            if let Some(addr) = socket.local_addr {
+                udp::close(&addr);
+            }
+        }
+        _ => {}
+    }
+
+    crate::kdebug!("close({})", fd);
+    Ok(())
+}
+
+/// Set socket option
+pub fn setsockopt(fd: SocketFd, level: i32, name: i32, value: &[u8]) -> Result<(), NetError> {
+    let mut sockets = SOCKETS.lock();
+    let socket = sockets.get_mut(&fd).ok_or(NetError::NotInitialized)?;
+
+    // Handle common options
+    match (level, name) {
+        (1, 1) => {
+            // SO_REUSEADDR - allow reuse of local address
+            Ok(())
+        }
+        (1, 20) => {
+            // SO_RCVTIMEO - receive timeout
+            if value.len() >= 8 {
+                let secs = u32::from_ne_bytes([value[0], value[1], value[2], value[3]]);
+                let usecs = u32::from_ne_bytes([value[4], value[5], value[6], value[7]]);
+                socket.recv_timeout = Some((secs as u64) * 1_000_000 + (usecs as u64));
+            }
+            Ok(())
+        }
+        (1, 21) => {
+            // SO_SNDTIMEO - send timeout
+            if value.len() >= 8 {
+                let secs = u32::from_ne_bytes([value[0], value[1], value[2], value[3]]);
+                let usecs = u32::from_ne_bytes([value[4], value[5], value[6], value[7]]);
+                socket.send_timeout = Some((secs as u64) * 1_000_000 + (usecs as u64));
+            }
+            Ok(())
+        }
+        _ => {
+            crate::kdebug!("Unknown socket option: level={}, name={}", level, name);
+            Ok(())
+        }
+    }
+}
+
+/// Get socket option
+pub fn getsockopt(fd: SocketFd, level: i32, name: i32, buf: &mut [u8]) -> Result<usize, NetError> {
+    let sockets = SOCKETS.lock();
+    let _socket = sockets.get(&fd).ok_or(NetError::NotInitialized)?;
+
+    // Return default values for most options
+    match (level, name) {
+        (1, 7) => {
+            // SO_ERROR
+            if buf.len() >= 4 {
+                buf[0..4].copy_from_slice(&0u32.to_ne_bytes());
+                Ok(4)
+            } else {
+                Err(NetError::BufferTooSmall)
+            }
+        }
+        _ => {
+            if buf.len() >= 4 {
+                buf[0..4].copy_from_slice(&0u32.to_ne_bytes());
+                Ok(4)
+            } else {
+                Err(NetError::BufferTooSmall)
+            }
+        }
+    }
+}
+
+/// Shutdown socket
+pub fn shutdown(fd: SocketFd, how: i32) -> Result<(), NetError> {
+    let sockets = SOCKETS.lock();
+    let socket = sockets.get(&fd).ok_or(NetError::NotInitialized)?;
+
+    if socket.sock_type == SocketType::Stream {
+        if let Some(ref key) = socket.tcp_key {
+            if how == 1 || how == 2 {
+                // SHUT_WR or SHUT_RDWR
+                tcp::close(key)?;
+            }
+        }
+    }
+
+    Ok(())
+}

@@ -15,9 +15,11 @@ pub mod arch;
 pub mod boot;
 pub mod console;
 pub mod drivers;
+pub mod fs;
 pub mod init;
 pub mod ipc;
 pub mod memory;
+pub mod net;
 pub mod process;
 pub mod scheduler;
 pub mod syscall;
@@ -152,6 +154,14 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     kprintln!("[BOOT] Mounting virtual filesystem...");
     vfs::init();
 
+    // Initialize filesystem layer
+    kprintln!("[BOOT] Initializing filesystem drivers...");
+    fs::init();
+
+    // Initialize network stack
+    kprintln!("[BOOT] Initializing network stack...");
+    net::init();
+
     // Initialize framebuffer if available
     if let Some(ref fb) = boot_info.framebuffer {
         kprintln!("[BOOT] Framebuffer: {}x{} @ 0x{:x}",
@@ -209,4 +219,37 @@ macro_rules! kprint {
 macro_rules! kprintln {
     () => ($crate::kprint!("\n"));
     ($($arg:tt)*) => ($crate::kprint!("{}\n", format_args!($($arg)*)));
+}
+
+/// Debug logging macro
+#[macro_export]
+macro_rules! kdebug {
+    ($($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        $crate::kprintln!("[DEBUG] {}", format_args!($($arg)*));
+    };
+}
+
+/// Info logging macro
+#[macro_export]
+macro_rules! kinfo {
+    ($($arg:tt)*) => {
+        $crate::kprintln!("[INFO] {}", format_args!($($arg)*));
+    };
+}
+
+/// Warning logging macro
+#[macro_export]
+macro_rules! kwarn {
+    ($($arg:tt)*) => {
+        $crate::kprintln!("[WARN] {}", format_args!($($arg)*));
+    };
+}
+
+/// Error logging macro
+#[macro_export]
+macro_rules! kerror {
+    ($($arg:tt)*) => {
+        $crate::kprintln!("[ERROR] {}", format_args!($($arg)*));
+    };
 }
