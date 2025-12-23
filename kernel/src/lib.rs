@@ -12,11 +12,13 @@
 extern crate alloc;
 
 pub mod arch;
+pub mod auth;
 pub mod boot;
 pub mod console;
 pub mod dev;
 pub mod drivers;
 pub mod exec;
+pub mod flock;
 pub mod fs;
 pub mod init;
 pub mod ipc;
@@ -24,12 +26,14 @@ pub mod memory;
 pub mod net;
 pub mod pipe;
 pub mod process;
+pub mod procfs;
 pub mod scheduler;
 pub mod signal;
 pub mod syscall;
 pub mod time;
 pub mod tty;
 pub mod vfs;
+pub mod waitqueue;
 
 use core::panic::PanicInfo;
 use alloc::alloc::{GlobalAlloc, Layout};
@@ -202,6 +206,22 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Initialize exec subsystem
     kprintln!("[BOOT] Setting up exec subsystem...");
     exec::init();
+
+    // Initialize procfs
+    kprintln!("[BOOT] Mounting procfs...");
+    procfs::init();
+
+    // Initialize authentication system
+    kprintln!("[BOOT] Setting up authentication...");
+    auth::init();
+
+    // Initialize wait queues
+    kprintln!("[BOOT] Initializing wait queues...");
+    waitqueue::init();
+
+    // Initialize file locking
+    kprintln!("[BOOT] Setting up file locking...");
+    flock::init();
 
     // Initialize hardware drivers
     kprintln!("[BOOT] Initializing hardware drivers...");

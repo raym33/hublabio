@@ -249,10 +249,63 @@ pub fn execve(
 ) -> Result<LoadedProgram, ExecError> {
     crate::kinfo!("exec: Executing {}", path);
 
-    // Read the file
-    // In real implementation, would read from VFS
-    // For now, return error
-    Err(ExecError::FileNotFound)
+    // Read the file from VFS
+    let data = crate::vfs::read_file(path)
+        .map_err(|_| ExecError::FileNotFound)?;
+
+    if data.is_empty() {
+        return Err(ExecError::InvalidFormat);
+    }
+
+    // Check for script (#!)
+    if let Some((interp, arg)) = detect_interpreter(&data) {
+        crate::kinfo!("exec: Script interpreter: {} {:?}", interp, arg);
+        // Would recursively exec the interpreter
+        return Err(ExecError::NotExecutable);
+    }
+
+    // Load ELF
+    let program = load_elf(&data)?;
+
+    crate::kinfo!(
+        "exec: Loaded {} at 0x{:x}, entry 0x{:x}",
+        path, program.base_addr, program.entry_point
+    );
+
+    // Set up stack
+    let (sp, argc) = setup_stack(program.stack_top, argv, envp)?;
+    crate::kdebug!("exec: Stack at 0x{:x}, argc={}", sp, argc);
+
+    Ok(program)
+}
+
+/// Execute program from syscall
+pub fn exec_program(
+    path: &str,
+    args: &[alloc::string::String],
+    env: &[alloc::string::String],
+) -> Result<(), ExecError> {
+    // Convert to slices
+    let argv: alloc::vec::Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let envp: alloc::vec::Vec<&str> = env.iter().map(|s| s.as_str()).collect();
+
+    let program = execve(path, &argv, &envp)?;
+
+    // Update current process
+    if let Some(proc) = crate::process::current() {
+        // Update process memory layout
+        let mut memory = proc.memory.lock();
+        memory.heap_start = program.brk;
+        memory.heap_end = program.brk;
+        memory.stack_top = program.stack_top;
+
+        crate::kinfo!(
+            "exec: Process {} executing {}, entry=0x{:x}",
+            proc.pid.0, path, program.entry_point
+        );
+    }
+
+    Ok(())
 }
 
 /// Set up user stack with arguments and environment
