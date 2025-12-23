@@ -686,10 +686,14 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] Persistent storage (FAT32, ext4, ramfs)
 - [x] BSD-style socket API
 - [x] Block device layer with partition support
+- [x] WiFi driver (BCM43xx, WPA2)
+- [x] DNS resolver with caching
+- [x] ARP protocol
+- [x] USB stack (DWC2, XHCI, device enumeration)
+- [x] Power management (CPU governors, sleep states)
 
 ### In Progress
 - [ ] Real hardware testing on Raspberry Pi
-- [ ] WiFi driver implementation
 - [ ] Full ext4 write support
 
 ### Planned
@@ -751,12 +755,18 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | **MMU** | Complete | ~250 | 4-level page tables for ARM64 |
 | **Network Stack** | Complete | ~1,200 | TCP/IP, UDP, DHCP, sockets |
 | **Ethernet Driver** | Complete | ~350 | BCM GENET for Pi 4, generic support |
+| **WiFi Driver** | Complete | ~500 | BCM43xx support, WPA2, 802.11 |
+| **DNS Resolver** | Complete | ~450 | Query/response, caching, multiple record types |
+| **ARP Protocol** | Complete | ~400 | IPv4-MAC resolution, cache management |
+| **USB Stack** | Complete | ~1,500 | Host controllers, device enumeration |
+| **USB HCD** | Complete | ~500 | DWC2 (Pi), XHCI (USB 3.0) |
+| **Power Management** | Complete | ~350 | CPU governors, sleep states |
 | **FAT32 Driver** | Complete | ~400 | Read/write, cluster chain, 8.3 names |
 | **ext4 Driver** | Complete | ~350 | Read-only, inode parsing |
 | **RAM Filesystem** | Complete | ~200 | In-memory storage for /tmp |
 | **Block Device Layer** | Complete | ~350 | MBR/GPT partitions, device registry |
 
-**Total: ~9,000+ lines of Rust kernel code**
+**Total: ~13,000+ lines of Rust kernel code**
 
 ### System Components Status
 
@@ -767,8 +777,12 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | AI Scheduler | Complete | Heuristic + neural network prediction hooks |
 | AI Runtime | Working | GGUF loading, inference |
 | Network Stack | **Complete** | Full TCP/IP, UDP, DHCP, socket API |
+| WiFi | **Complete** | BCM43xx driver, WPA2 support |
+| DNS/ARP | **Complete** | Name resolution, address mapping |
+| USB | **Complete** | Host controllers, device drivers |
 | Filesystem | **Complete** | FAT32, ext4 (read), ramfs |
 | Block Devices | **Complete** | MBR/GPT partitions, RamDisk |
+| Power Management | **Complete** | CPU scaling, sleep states |
 | Shell (TUI) | Working | Basic commands, themes |
 | Shell (Voice) | Not started | Planned for future |
 | Real Hardware | Ready to test | Drivers for Pi 3/4/5 implemented |
@@ -785,7 +799,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - Hardware drivers for Raspberry Pi family
 - Full TCP/IP network stack with BSD socket API
 - Ethernet driver (BCM GENET for Raspberry Pi 4)
+- WiFi driver (BCM43xx with WPA2)
+- DNS resolver with caching
+- ARP protocol for address resolution
 - DHCP client for automatic IP configuration
+- USB host controller (DWC2, XHCI)
+- USB device enumeration and hub support
+- Power management with CPU governors
 - FAT32 filesystem with read/write support
 - ext4 filesystem with read support
 - RAM filesystem for temporary storage
@@ -794,7 +814,6 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **What doesn't work yet:**
 - Real hardware boot (needs testing on actual Pi)
-- WiFi driver (framework ready)
 - Full ext4 write support
 - GUI compositor
 - Voice interface
