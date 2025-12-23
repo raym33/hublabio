@@ -374,6 +374,11 @@ pub fn unblock(pid: Pid) {
     }
 }
 
+/// Wake a process (alias for unblock, commonly used)
+pub fn wake(pid: Pid) {
+    unblock(pid);
+}
+
 /// Sleep for a duration (in ticks)
 pub fn sleep(ticks: u64) {
     let current = current_pid();
@@ -389,7 +394,7 @@ pub fn yield_now() {
 
 /// Get current running PID
 pub fn current_pid() -> Pid {
-    CURRENT_PID.load(Ordering::Acquire)
+    Pid(CURRENT_PID.load(Ordering::Acquire))
 }
 
 /// Timer tick handler
@@ -409,7 +414,13 @@ pub fn schedule() {
         return;
     }
 
-    let current_pid = CURRENT_PID.load(Ordering::Acquire);
+    // Disable interrupts during scheduling to prevent race conditions
+    let was_enabled = crate::arch::interrupts_enabled();
+    if was_enabled {
+        crate::arch::disable_interrupts();
+    }
+
+    let current_pid_val = CURRENT_PID.load(Ordering::Acquire);
     let current_task = crate::task::current();
 
     let next_pid = {
@@ -422,14 +433,20 @@ pub fn schedule() {
 
     if let Some(pid) = next_pid {
         // Check if we're switching to a different process
-        if pid != current_pid {
-            CURRENT_PID.store(pid, Ordering::Release);
+        if pid.0 != current_pid_val {
+            CURRENT_PID.store(pid.0, Ordering::Release);
 
             // Perform actual context switch
             if let Some(from_task) = current_task {
                 if let Some(to_task) = get_task_for_pid(pid) {
+                    // Re-enable interrupts after context switch returns
+                    // (the new context will have its own interrupt state)
                     unsafe {
                         crate::task::context_switch(&from_task, &to_task);
+                    }
+                    // Restore interrupt state when we return
+                    if was_enabled {
+                        crate::arch::enable_interrupts();
                     }
                     return;
                 }
@@ -454,7 +471,15 @@ pub fn schedule() {
         }
     } else {
         CURRENT_PID.store(0, Ordering::Release);
-        // Idle - wait for interrupt
+    }
+
+    // Restore interrupt state
+    if was_enabled {
+        crate::arch::enable_interrupts();
+    }
+
+    // Idle - wait for interrupt (with interrupts enabled)
+    if next_pid.is_none() {
         crate::arch::halt();
     }
 }

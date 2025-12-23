@@ -6,6 +6,7 @@ use crate::{BootInfo, MemoryMap, MemoryRegion, MemoryKind, FramebufferInfo};
 
 pub mod platform;
 pub mod cmdline;
+pub mod init;
 
 /// Boot stages
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

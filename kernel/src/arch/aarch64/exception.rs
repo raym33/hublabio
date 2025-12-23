@@ -337,19 +337,55 @@ fn send_fault_signal(sig: crate::pagefault::FaultSignal) {
 
 /// Handle IRQ (timer, device interrupts)
 fn handle_irq(_frame: &ExceptionFrame) {
-    // Read interrupt controller to determine source
-    // TODO: Implement GIC handling
+    use super::interrupt::gic;
 
-    // For now, just clear any pending timer interrupt
-    unsafe {
-        // Disable timer
-        asm!(
-            "msr cntp_ctl_el0, xzr",
-        );
+    // Acknowledge interrupt from GIC
+    let irq = gic::acknowledge();
+
+    // Check for spurious interrupt
+    if irq >= 1020 {
+        return;
     }
 
-    // TODO: Call appropriate interrupt handler
-    // TODO: Trigger scheduler if timer interrupt
+    // Handle timer interrupt (IRQ 30 for ARM Generic Timer on most platforms)
+    const TIMER_IRQ: u32 = 30;
+    const TIMER_IRQ_NS: u32 = 27;  // Non-secure physical timer
+
+    if irq == TIMER_IRQ || irq == TIMER_IRQ_NS {
+        handle_timer_interrupt();
+    } else {
+        // Dispatch to registered handler
+        super::interrupt::handle_irq(irq);
+    }
+
+    // Signal end of interrupt
+    gic::end_of_interrupt(irq);
+}
+
+/// Handle timer interrupt
+fn handle_timer_interrupt() {
+    // Increment system tick
+    crate::syscall::tick();
+
+    // Check if current process has used its time slice
+    let should_schedule = if let Some(task) = crate::task::current() {
+        // Decrement time slice
+        let remaining = task.time_slice.load(core::sync::atomic::Ordering::Relaxed);
+        if remaining > 0 {
+            task.time_slice.store(remaining.saturating_sub(100), core::sync::atomic::Ordering::Relaxed);
+        }
+        remaining <= 100 // Schedule if time slice exhausted
+    } else {
+        true
+    };
+
+    // Re-arm the timer for next tick (10ms = 10000us)
+    enable_timer(10_000);
+
+    // Trigger scheduler if needed
+    if should_schedule {
+        crate::scheduler::schedule();
+    }
 }
 
 /// Handle FIQ (fast interrupt)

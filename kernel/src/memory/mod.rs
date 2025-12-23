@@ -239,14 +239,38 @@ pub fn init(memory_map: &MemoryMap) {
 }
 
 /// Allocate a physical frame
+/// This function disables interrupts while holding the allocator lock
 pub fn allocate_frame() -> Option<PhysFrame> {
-    FRAME_ALLOCATOR.lock().as_mut()?.allocate()
+    // Disable interrupts during allocation to prevent deadlock
+    let was_enabled = crate::arch::interrupts_enabled();
+    if was_enabled {
+        crate::arch::disable_interrupts();
+    }
+
+    let result = FRAME_ALLOCATOR.lock().as_mut()?.allocate();
+
+    if was_enabled {
+        crate::arch::enable_interrupts();
+    }
+
+    result
 }
 
 /// Deallocate a physical frame
+/// This function disables interrupts while holding the allocator lock
 pub fn deallocate_frame(frame: PhysFrame) {
+    // Disable interrupts during deallocation to prevent deadlock
+    let was_enabled = crate::arch::interrupts_enabled();
+    if was_enabled {
+        crate::arch::disable_interrupts();
+    }
+
     if let Some(allocator) = FRAME_ALLOCATOR.lock().as_mut() {
         allocator.deallocate(frame);
+    }
+
+    if was_enabled {
+        crate::arch::enable_interrupts();
     }
 }
 

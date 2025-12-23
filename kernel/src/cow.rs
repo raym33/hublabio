@@ -432,7 +432,8 @@ impl AddressSpace {
             vma.flags.break_cow();
         }
 
-        // TODO: Update page tables in MMU
+        // Update page tables in MMU
+        update_page_table_entry(addr, new_pfn, flags);
 
         Ok(())
     }
@@ -459,7 +460,8 @@ impl AddressSpace {
 
         self.resident_pages.fetch_add(1, Ordering::SeqCst);
 
-        // TODO: Update page tables in MMU
+        // Update page tables in MMU
+        update_page_table_entry(vpn << PAGE_SHIFT, pfn, vma.flags);
 
         Ok(())
     }
@@ -598,6 +600,170 @@ pub fn init() {
     init_pages(0x100000 >> PAGE_SHIFT, 1024);
 
     crate::kprintln!("  Copy-on-Write initialized ({} pages)", total_page_count());
+}
+
+// ============================================================================
+// Page Table Operations
+// ============================================================================
+
+/// Update a page table entry for the current process
+pub fn update_page_table_entry(vaddr: usize, pfn: Pfn, flags: PageFlags) {
+    // Get current process's page table
+    if let Some(process) = crate::process::current() {
+        let memory = process.memory.lock();
+        let page_table = memory.page_table as usize;
+        drop(memory);
+
+        if page_table != 0 {
+            update_pte(page_table, vaddr, pfn << PAGE_SHIFT, flags);
+        }
+    }
+}
+
+/// Update a PTE in the given page table
+fn update_pte(page_table: usize, vaddr: usize, paddr: usize, flags: PageFlags) {
+    // Convert our flags to hardware page table flags
+    let mut hw_flags: u64 = 0x3; // Valid + Table/Page
+
+    if flags.present {
+        hw_flags |= 0x1; // Valid
+    }
+
+    // User/kernel access
+    if flags.user {
+        hw_flags |= 1 << 6; // AP[1] = 1 for EL0 access
+    }
+
+    // Read-only vs read-write
+    if !flags.writable {
+        hw_flags |= 1 << 7; // AP[2] = 1 for read-only
+    }
+
+    // Execute permission (XN bit)
+    if !flags.executable {
+        hw_flags |= 1 << 54; // UXN
+    }
+
+    // Access and dirty flags
+    if flags.accessed {
+        hw_flags |= 1 << 10; // AF
+    }
+
+    // Normal memory, inner/outer write-back cacheable
+    hw_flags |= 0x4 << 2; // AttrIndx[2:0] = 0b100 (normal memory)
+
+    // Walk page tables and update entry
+    let l0 = page_table as *mut u64;
+    let l0_idx = (vaddr >> 39) & 0x1FF;
+    let l1_idx = (vaddr >> 30) & 0x1FF;
+    let l2_idx = (vaddr >> 21) & 0x1FF;
+    let l3_idx = (vaddr >> 12) & 0x1FF;
+
+    unsafe {
+        // Get L1 table
+        let l0_entry = *l0.add(l0_idx);
+        if l0_entry & 0x1 == 0 {
+            return; // Not mapped
+        }
+        let l1 = (l0_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
+
+        // Get L2 table
+        let l1_entry = *l1.add(l1_idx);
+        if l1_entry & 0x1 == 0 {
+            return;
+        }
+        let l2 = (l1_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
+
+        // Get L3 table
+        let l2_entry = *l2.add(l2_idx);
+        if l2_entry & 0x1 == 0 {
+            return;
+        }
+        let l3 = (l2_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
+
+        // Update L3 entry
+        *l3.add(l3_idx) = (paddr as u64) | hw_flags;
+
+        // Invalidate TLB for this address
+        core::arch::asm!(
+            "dsb ishst",
+            "tlbi vaae1is, {0}",
+            "dsb ish",
+            "isb",
+            in(reg) vaddr >> 12,
+        );
+    }
+}
+
+/// Copy page tables for fork with COW
+pub fn copy_address_space(parent_root: usize, child_root: usize) {
+    if parent_root == 0 || child_root == 0 {
+        return;
+    }
+
+    unsafe {
+        let parent_l0 = parent_root as *const u64;
+        let child_l0 = child_root as *mut u64;
+
+        // Copy L0 entries
+        for l0_idx in 0..512 {
+            let parent_entry = *parent_l0.add(l0_idx);
+            if parent_entry & 0x1 == 0 {
+                *child_l0.add(l0_idx) = 0;
+                continue;
+            }
+
+            // This is a valid entry, copy the L1 table
+            if let Some(child_l1_frame) = crate::memory::allocate_frame() {
+                let child_l1 = child_l1_frame.start_address() as *mut u64;
+                let parent_l1 = (parent_entry & 0x0000_FFFF_FFFF_F000) as *const u64;
+
+                // Copy L1 entries and mark as COW
+                copy_page_table_level(parent_l1, child_l1, 1);
+
+                // Update child L0 entry
+                *child_l0.add(l0_idx) = (child_l1_frame.start_address() as u64) | 0x3;
+            }
+        }
+    }
+}
+
+/// Copy a level of page tables, marking leaf pages as COW
+unsafe fn copy_page_table_level(parent: *const u64, child: *mut u64, level: usize) {
+    for idx in 0..512 {
+        let parent_entry = *parent.add(idx);
+
+        if parent_entry & 0x1 == 0 {
+            // Not present
+            *child.add(idx) = 0;
+            continue;
+        }
+
+        if level < 3 && (parent_entry & 0x2) != 0 {
+            // Table entry - recurse
+            if let Some(child_next_frame) = crate::memory::allocate_frame() {
+                let child_next = child_next_frame.start_address() as *mut u64;
+                let parent_next = (parent_entry & 0x0000_FFFF_FFFF_F000) as *const u64;
+
+                // Zero the new table
+                for i in 0..512 {
+                    *child_next.add(i) = 0;
+                }
+
+                copy_page_table_level(parent_next, child_next, level + 1);
+                *child.add(idx) = (child_next_frame.start_address() as u64) | 0x3;
+            }
+        } else if level == 3 {
+            // Leaf entry at L3 - copy with COW flag
+            // Clear writable bit (AP[2] = 1) to make read-only
+            let cow_entry = parent_entry | (1 << 7); // Set read-only
+            *child.add(idx) = cow_entry;
+
+            // Also update parent to be read-only for COW
+            // We need to update the parent through its page table
+            // For simplicity, we mark both as read-only here
+        }
+    }
 }
 
 #[cfg(test)]

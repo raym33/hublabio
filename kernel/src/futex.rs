@@ -159,6 +159,60 @@ impl FutexError {
     }
 }
 
+/// Validate a user-space address is accessible
+fn validate_user_address(address: usize, size: usize) -> Result<(), FutexError> {
+    // Check for null pointer
+    if address == 0 {
+        return Err(FutexError::Fault);
+    }
+
+    // Check alignment for atomic operations
+    if address % core::mem::size_of::<u32>() != 0 {
+        return Err(FutexError::Invalid);
+    }
+
+    // Check for overflow
+    if address.checked_add(size).is_none() {
+        return Err(FutexError::Fault);
+    }
+
+    // Check address is in valid user space range (not kernel space)
+    const USER_SPACE_END: usize = 0x0000_FFFF_FFFF_FFFF;
+    const KERNEL_SPACE_START: usize = 0xFFFF_0000_0000_0000;
+
+    if address >= KERNEL_SPACE_START || address + size > USER_SPACE_END {
+        return Err(FutexError::Fault);
+    }
+
+    // Verify the address is mapped in the current process's address space
+    if let Some(process) = crate::process::current() {
+        let memory = process.memory.lock();
+        let mut found = false;
+        for region in &memory.regions {
+            if address >= region.start && address + size <= region.end {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            return Err(FutexError::Fault);
+        }
+    }
+
+    Ok(())
+}
+
+/// Safely read an atomic u32 from user space
+fn safe_read_user_atomic(address: usize) -> Result<u32, FutexError> {
+    validate_user_address(address, core::mem::size_of::<u32>())?;
+
+    // Now safe to dereference
+    let atomic = unsafe { (address as *const AtomicU32).as_ref() }
+        .ok_or(FutexError::Fault)?;
+
+    Ok(atomic.load(Ordering::SeqCst))
+}
+
 /// Wait on futex
 pub fn futex_wait(
     address: usize,
@@ -173,6 +227,9 @@ pub fn futex_wait(
         .map(|p| p.pid)
         .ok_or(FutexError::Invalid)?;
 
+    // Validate address before any operations
+    validate_user_address(address, core::mem::size_of::<u32>())?;
+
     // Create key
     let key = if private {
         FutexKey::private(address, pid)
@@ -181,10 +238,8 @@ pub fn futex_wait(
         FutexKey::shared(address)
     };
 
-    // Read current value atomically
-    let current = unsafe { (address as *const AtomicU32).as_ref() }
-        .ok_or(FutexError::Fault)?
-        .load(Ordering::SeqCst);
+    // Read current value atomically with bounds checking
+    let current = safe_read_user_atomic(address)?;
 
     // Check if value matches expected
     if current != expected {
@@ -307,11 +362,13 @@ pub fn futex_requeue(
         .map(|p| p.pid)
         .ok_or(FutexError::Invalid)?;
 
+    // Validate both addresses
+    validate_user_address(src_addr, core::mem::size_of::<u32>())?;
+    validate_user_address(dst_addr, core::mem::size_of::<u32>())?;
+
     // Check expected value if provided
     if let Some(exp) = expected {
-        let current = unsafe { (src_addr as *const AtomicU32).as_ref() }
-            .ok_or(FutexError::Fault)?
-            .load(Ordering::SeqCst);
+        let current = safe_read_user_atomic(src_addr)?;
 
         if current != exp {
             return Err(FutexError::WouldBlock);
@@ -385,13 +442,17 @@ pub fn futex_wake_op(
         .map(|p| p.pid)
         .ok_or(FutexError::Invalid)?;
 
+    // Validate both addresses before any operations
+    validate_user_address(addr1, core::mem::size_of::<u32>())?;
+    validate_user_address(addr2, core::mem::size_of::<u32>())?;
+
     // Decode operation
     let op_type = (op >> 28) & 0xF;
     let cmp_type = (op >> 24) & 0xF;
     let op_arg = ((op >> 12) & 0xFFF) as i32;
     let cmp_arg = (op & 0xFFF) as u32;
 
-    // Perform atomic operation on addr2
+    // Perform atomic operation on addr2 (already validated)
     let atomic = unsafe { (addr2 as *const AtomicU32).as_ref() }
         .ok_or(FutexError::Fault)?;
 
@@ -463,6 +524,9 @@ pub fn futex_lock_pi(
         .map(|p| p.pid)
         .ok_or(FutexError::Invalid)?;
 
+    // Validate address before any operations
+    validate_user_address(address, core::mem::size_of::<u32>())?;
+
     let key = if private {
         FutexKey::private(address, pid)
     } else {
@@ -484,7 +548,7 @@ pub fn futex_lock_pi(
                     // Lock is free, acquire it
                     pi.owner = Some(pid);
 
-                    // Update userspace word
+                    // Update userspace word (already validated)
                     let atomic = unsafe { (address as *const AtomicU32).as_ref() }
                         .ok_or(FutexError::Fault)?;
                     atomic.store(pid.0 as u32, Ordering::SeqCst);
@@ -548,6 +612,9 @@ pub fn futex_unlock_pi(address: usize, private: bool) -> Result<(), FutexError> 
     let pid = crate::process::current()
         .map(|p| p.pid)
         .ok_or(FutexError::Invalid)?;
+
+    // Validate address before any operations
+    validate_user_address(address, core::mem::size_of::<u32>())?;
 
     let key = if private {
         FutexKey::private(address, pid)
@@ -635,7 +702,17 @@ pub fn handle_thread_exit(pid: Pid) {
         let mut addr = head_addr;
         let mut count = 0;
 
+        // Validate head address before walking
+        if validate_user_address(head_addr, core::mem::size_of::<RobustListHead>()).is_err() {
+            return;
+        }
+
         while addr != 0 && count < 4096 {
+            // Validate current address before reading
+            if validate_user_address(addr, core::mem::size_of::<usize>()).is_err() {
+                break;
+            }
+
             // Read robust list entry
             let head = unsafe { (head_addr as *const RobustListHead).as_ref() };
             if head.is_none() {
@@ -643,15 +720,28 @@ pub fn handle_thread_exit(pid: Pid) {
             }
 
             let head = head.unwrap();
-            let futex_addr = addr.wrapping_add(head.futex_offset as usize);
 
-            // Mark futex with FUTEX_OWNER_DIED
-            if let Some(atomic) = unsafe { (futex_addr as *const AtomicU32).as_ref() } {
-                let old = atomic.fetch_or(0x40000000, Ordering::SeqCst); // FUTEX_OWNER_DIED
-                if old != 0 {
-                    // Wake one waiter
-                    let _ = futex_wake(futex_addr, 1, ops::FUTEX_BITSET_MATCH_ANY, true);
+            // Validate futex_offset doesn't cause overflow
+            let futex_addr = match addr.checked_add(head.futex_offset as usize) {
+                Some(a) => a,
+                None => break,
+            };
+
+            // Validate futex address before accessing
+            if validate_user_address(futex_addr, core::mem::size_of::<u32>()).is_ok() {
+                // Mark futex with FUTEX_OWNER_DIED
+                if let Some(atomic) = unsafe { (futex_addr as *const AtomicU32).as_ref() } {
+                    let old = atomic.fetch_or(0x40000000, Ordering::SeqCst); // FUTEX_OWNER_DIED
+                    if old != 0 {
+                        // Wake one waiter
+                        let _ = futex_wake(futex_addr, 1, ops::FUTEX_BITSET_MATCH_ANY, true);
+                    }
                 }
+            }
+
+            // Validate next entry address before reading
+            if validate_user_address(addr, core::mem::size_of::<usize>()).is_err() {
+                break;
             }
 
             // Move to next entry
@@ -755,9 +845,17 @@ pub fn sys_get_robust_list(pid: i32, head_ptr: usize, len_ptr: usize) -> isize {
         None => return -22, // EINVAL
     };
 
+    // Validate output pointers before writing
+    if validate_user_address(head_ptr, core::mem::size_of::<usize>()).is_err() {
+        return -14; // EFAULT
+    }
+    if validate_user_address(len_ptr, core::mem::size_of::<usize>()).is_err() {
+        return -14; // EFAULT
+    }
+
     match get_robust_list(target_pid) {
         Some(head) => {
-            // Write head and len to user pointers
+            // Write head and len to user pointers (already validated)
             unsafe {
                 *(head_ptr as *mut usize) = head;
                 *(len_ptr as *mut usize) = core::mem::size_of::<RobustListHead>();

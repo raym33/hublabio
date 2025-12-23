@@ -683,7 +683,10 @@ fn load_elf_segments(data: &[u8], process: &Process) -> Result<(), i32> {
             let frame = allocate_frame().ok_or(-12)?; // ENOMEM
 
             // Map the page
-            map_page(page_table_addr, page_vaddr, frame.start_address(), page_flags);
+            if !map_page(page_table_addr, page_vaddr, frame.start_address(), page_flags) {
+                deallocate_frame(frame);
+                return Err(-12); // ENOMEM
+            }
 
             // Copy data from ELF file
             let page_offset_in_segment = page_vaddr.saturating_sub(vaddr);
@@ -735,7 +738,23 @@ fn load_elf_segments(data: &[u8], process: &Process) -> Result<(), i32> {
 }
 
 /// Map a page in the address space
-fn map_page(page_table: usize, vaddr: usize, paddr: usize, flags: PageFlags) {
+/// Returns true on success, false on failure (allocation error or invalid parameters)
+fn map_page(page_table: usize, vaddr: usize, paddr: usize, flags: PageFlags) -> bool {
+    // Validate inputs
+    if page_table == 0 {
+        return false;
+    }
+
+    // Validate alignment
+    if page_table % PAGE_SIZE != 0 || vaddr % PAGE_SIZE != 0 || paddr % PAGE_SIZE != 0 {
+        return false;
+    }
+
+    // Validate address ranges (check for overflow)
+    if vaddr.checked_add(PAGE_SIZE).is_none() || paddr.checked_add(PAGE_SIZE).is_none() {
+        return false;
+    }
+
     // Walk page table and create mapping
     let l0 = page_table as *mut u64;
 
@@ -747,19 +766,51 @@ fn map_page(page_table: usize, vaddr: usize, paddr: usize, flags: PageFlags) {
     unsafe {
         // Get or create L1 table
         let l1 = get_or_create_table(l0, l0_idx);
+        if l1.is_null() {
+            return false;
+        }
+
         // Get or create L2 table
         let l2 = get_or_create_table(l1, l1_idx);
+        if l2.is_null() {
+            return false;
+        }
+
         // Get or create L3 table
         let l3 = get_or_create_table(l2, l2_idx);
+        if l3.is_null() {
+            return false;
+        }
 
         // Set L3 entry (final mapping)
         let entry = (paddr as u64) | flags.bits() | 0x3;
         *l3.add(l3_idx) = entry;
     }
+
+    true
 }
 
 /// Get or create next level table
+///
+/// # Safety
+/// - `table` must be a valid, aligned pointer to a page table
+/// - `index` must be in range [0, 512)
 unsafe fn get_or_create_table(table: *mut u64, index: usize) -> *mut u64 {
+    // Validate inputs
+    if table.is_null() {
+        return core::ptr::null_mut();
+    }
+
+    // Index must be within page table bounds (512 entries)
+    if index >= 512 {
+        return core::ptr::null_mut();
+    }
+
+    // Validate table pointer alignment (must be page-aligned)
+    if (table as usize) % PAGE_SIZE != 0 {
+        return core::ptr::null_mut();
+    }
+
     let entry = *table.add(index);
 
     if entry & 0x1 == 0 {
@@ -781,8 +832,15 @@ unsafe fn get_or_create_table(table: *mut u64, index: usize) -> *mut u64 {
         return core::ptr::null_mut();
     }
 
-    // Extract address from entry
-    (entry & 0x0000_FFFF_FFFF_F000) as *mut u64
+    // Extract address from entry and validate it
+    let next_table_addr = entry & 0x0000_FFFF_FFFF_F000;
+
+    // Validate the extracted address is page-aligned and non-zero
+    if next_table_addr == 0 || next_table_addr as usize % PAGE_SIZE != 0 {
+        return core::ptr::null_mut();
+    }
+
+    next_table_addr as *mut u64
 }
 
 /// Set up user stack with arguments and environment
@@ -804,12 +862,15 @@ fn setup_user_stack(
         let vaddr = stack_base + i * PAGE_SIZE;
         let frame = allocate_frame().ok_or(-12)?;
 
-        map_page(
+        if !map_page(
             page_table,
             vaddr,
             frame.start_address(),
             PageFlags::PRESENT | PageFlags::WRITABLE | PageFlags::USER | PageFlags::NO_EXECUTE,
-        );
+        ) {
+            deallocate_frame(frame);
+            return Err(-12); // ENOMEM
+        }
 
         // Zero the page
         unsafe {

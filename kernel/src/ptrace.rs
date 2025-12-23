@@ -194,6 +194,71 @@ impl PtraceError {
     }
 }
 
+/// Validate an address in tracee's address space
+fn validate_tracee_address(tracee_pid: Pid, addr: usize, size: usize) -> Result<(), PtraceError> {
+    // Check for null pointer
+    if addr == 0 {
+        return Err(PtraceError::Fault);
+    }
+
+    // Check alignment
+    if addr % core::mem::size_of::<usize>() != 0 {
+        return Err(PtraceError::Invalid);
+    }
+
+    // Check for overflow
+    if addr.checked_add(size).is_none() {
+        return Err(PtraceError::Fault);
+    }
+
+    // Check address is in valid user space range
+    const USER_SPACE_END: usize = 0x0000_FFFF_FFFF_FFFF;
+    const KERNEL_SPACE_START: usize = 0xFFFF_0000_0000_0000;
+
+    if addr >= KERNEL_SPACE_START || addr + size > USER_SPACE_END {
+        return Err(PtraceError::Fault);
+    }
+
+    // Verify address is mapped in tracee's address space
+    if let Some(process) = crate::process::get(tracee_pid) {
+        let memory = process.memory.lock();
+        let mut found = false;
+        for region in &memory.regions {
+            if addr >= region.start && addr + size <= region.end {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            return Err(PtraceError::Fault);
+        }
+    } else {
+        return Err(PtraceError::NoProcess);
+    }
+
+    Ok(())
+}
+
+/// Validate a pointer for writing user data
+fn validate_user_ptr(ptr: usize, size: usize) -> Result<(), PtraceError> {
+    if ptr == 0 {
+        return Err(PtraceError::Fault);
+    }
+
+    if ptr.checked_add(size).is_none() {
+        return Err(PtraceError::Fault);
+    }
+
+    const USER_SPACE_END: usize = 0x0000_FFFF_FFFF_FFFF;
+    const KERNEL_SPACE_START: usize = 0xFFFF_0000_0000_0000;
+
+    if ptr >= KERNEL_SPACE_START || ptr + size > USER_SPACE_END {
+        return Err(PtraceError::Fault);
+    }
+
+    Ok(())
+}
+
 /// Request tracing by parent
 pub fn traceme() -> Result<(), PtraceError> {
     let pid = crate::process::current()
@@ -422,8 +487,10 @@ pub fn peek_data(pid: Pid, addr: usize) -> Result<usize, PtraceError> {
         return Err(PtraceError::Permission);
     }
 
-    // Read from tracee's address space
-    // Would need to map tracee's memory and read
+    // Validate address in tracee's address space
+    validate_tracee_address(pid, addr, core::mem::size_of::<usize>())?;
+
+    // Read from tracee's address space (address now validated)
     let data = unsafe {
         (addr as *const usize).read_volatile()
     };
@@ -444,7 +511,10 @@ pub fn poke_data(pid: Pid, addr: usize, data: usize) -> Result<(), PtraceError> 
         return Err(PtraceError::Permission);
     }
 
-    // Write to tracee's address space
+    // Validate address in tracee's address space
+    validate_tracee_address(pid, addr, core::mem::size_of::<usize>())?;
+
+    // Write to tracee's address space (address now validated)
     unsafe {
         (addr as *mut usize).write_volatile(data);
     }
@@ -813,6 +883,10 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
             poke_data(target_pid, addr, data)
         }
         request::PTRACE_GETREGS => {
+            // Validate output pointer before writing
+            if let Err(e) = validate_user_ptr(data, core::mem::size_of::<UserRegs>()) {
+                return e.to_errno() as isize;
+            }
             match getregs(target_pid) {
                 Ok(regs) => {
                     unsafe {
@@ -824,10 +898,18 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
             }
         }
         request::PTRACE_SETREGS => {
+            // Validate input pointer before reading
+            if let Err(e) = validate_user_ptr(data, core::mem::size_of::<UserRegs>()) {
+                return e.to_errno() as isize;
+            }
             let regs = unsafe { &*(data as *const UserRegs) };
             setregs(target_pid, regs)
         }
         request::PTRACE_GETFPREGS => {
+            // Validate output pointer before writing
+            if let Err(e) = validate_user_ptr(data, core::mem::size_of::<UserFpRegs>()) {
+                return e.to_errno() as isize;
+            }
             match getfpregs(target_pid) {
                 Ok(fpregs) => {
                     unsafe {
@@ -839,6 +921,10 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
             }
         }
         request::PTRACE_SETFPREGS => {
+            // Validate input pointer before reading
+            if let Err(e) = validate_user_ptr(data, core::mem::size_of::<UserFpRegs>()) {
+                return e.to_errno() as isize;
+            }
             let fpregs = unsafe { &*(data as *const UserFpRegs) };
             setfpregs(target_pid, fpregs)
         }
@@ -846,6 +932,10 @@ pub fn sys_ptrace(request: i32, pid: i32, addr: usize, data: usize) -> isize {
             setoptions(target_pid, data as u32)
         }
         request::PTRACE_GETEVENTMSG => {
+            // Validate output pointer before writing
+            if let Err(e) = validate_user_ptr(data, core::mem::size_of::<u32>()) {
+                return e.to_errno() as isize;
+            }
             match geteventmsg(target_pid) {
                 Ok(msg) => {
                     unsafe { *(data as *mut u32) = msg; }

@@ -55,6 +55,72 @@ impl SlabCache {
         }
     }
 
+    /// Check if a slab belongs to this cache
+    fn owns_slab(&self, slab_ptr: NonNull<SlabHeader>) -> bool {
+        // Check partial slabs
+        let mut current = self.partial_slabs;
+        while let Some(ptr) = current {
+            if ptr == slab_ptr {
+                return true;
+            }
+            current = unsafe { ptr.as_ref().next_slab };
+        }
+
+        // Check full slabs
+        current = self.full_slabs;
+        while let Some(ptr) = current {
+            if ptr == slab_ptr {
+                return true;
+            }
+            current = unsafe { ptr.as_ref().next_slab };
+        }
+
+        // Check empty slabs
+        current = self.empty_slabs;
+        while let Some(ptr) = current {
+            if ptr == slab_ptr {
+                return true;
+            }
+            current = unsafe { ptr.as_ref().next_slab };
+        }
+
+        false
+    }
+
+    /// Validate that a pointer belongs to a valid object within a slab
+    fn validate_object(&self, ptr: NonNull<u8>, slab: &SlabHeader) -> bool {
+        let slab_addr = slab as *const SlabHeader as usize;
+        let ptr_addr = ptr.as_ptr() as usize;
+
+        // Object must be within the slab page
+        if ptr_addr < slab_addr || ptr_addr >= slab_addr + PAGE_SIZE {
+            return false;
+        }
+
+        // Calculate header size and first object offset
+        let header_size = core::mem::size_of::<SlabHeader>();
+        let first_obj = slab_addr + header_size;
+
+        // Object must be at or after the header
+        if ptr_addr < first_obj {
+            return false;
+        }
+
+        // Object must be aligned to object size
+        let offset = ptr_addr - first_obj;
+        if offset % slab.object_size != 0 {
+            return false;
+        }
+
+        // Object index must be within bounds
+        let obj_index = offset / slab.object_size;
+        if obj_index >= slab.total_objects {
+            return false;
+        }
+
+        true
+    }
+
     /// Allocate an object from this cache
     fn allocate(&mut self) -> Option<NonNull<u8>> {
         // Try partial slabs first
@@ -92,12 +158,47 @@ impl SlabCache {
     }
 
     /// Deallocate an object back to this cache
-    fn deallocate(&mut self, ptr: NonNull<u8>) {
+    /// Returns false if the pointer doesn't belong to this cache
+    fn deallocate(&mut self, ptr: NonNull<u8>) -> bool {
         // Find which slab this belongs to
         let page_addr = (ptr.as_ptr() as usize) & !(PAGE_SIZE - 1);
-        let slab_ptr = unsafe { NonNull::new_unchecked(page_addr as *mut SlabHeader) };
+
+        // Validate page_addr is non-null
+        if page_addr == 0 {
+            return false;
+        }
+
+        let slab_ptr = match NonNull::new(page_addr as *mut SlabHeader) {
+            Some(p) => p,
+            None => return false,
+        };
+
+        // Verify this slab belongs to this cache
+        if !self.owns_slab(slab_ptr) {
+            return false;
+        }
 
         let slab = unsafe { slab_ptr.as_ptr().as_mut().unwrap() };
+
+        // Validate the object size matches
+        if slab.object_size != self.object_size {
+            return false;
+        }
+
+        // Validate the pointer is a valid object within the slab
+        if !self.validate_object(ptr, slab) {
+            return false;
+        }
+
+        // Check for double-free by scanning free list
+        let mut current = slab.free_list;
+        while let Some(free_obj) = current {
+            if free_obj.cast() == ptr {
+                // Double free detected!
+                return false;
+            }
+            current = unsafe { free_obj.as_ref().next };
+        }
 
         // Add to free list
         let obj = ptr.cast::<FreeObject>();
@@ -119,6 +220,8 @@ impl SlabCache {
             slab.next_slab = self.partial_slabs;
             self.partial_slabs = Some(slab_ptr);
         }
+
+        true
     }
 
     /// Grow the cache by adding a new slab
@@ -237,22 +340,31 @@ impl SlabAllocator {
     }
 
     /// Deallocate memory
-    pub fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) {
+    /// Returns true if deallocation succeeded, false if the pointer was invalid
+    pub fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) -> bool {
         let size = layout.size().max(layout.align());
 
         if size <= MAX_SLAB_SIZE {
             if let Some(cache) = self.find_cache(size) {
-                cache.deallocate(ptr);
+                return cache.deallocate(ptr);
             }
+            return false;
         } else {
-            // Large allocation
+            // Large allocation - validate pointer alignment
+            let ptr_addr = ptr.as_ptr() as usize;
+            if ptr_addr % PAGE_SIZE != 0 {
+                return false;
+            }
+
             let pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
             let order = pages.next_power_of_two().trailing_zeros() as usize;
-            let frame = PhysFrame::containing_address(ptr.as_ptr() as usize);
+            let frame = PhysFrame::containing_address(ptr_addr);
 
             if let Some(allocator) = super::FRAME_ALLOCATOR.lock().as_mut() {
                 allocator.deallocate_order(frame, order);
+                return true;
             }
+            return false;
         }
     }
 }
@@ -266,6 +378,8 @@ pub fn kmalloc(layout: Layout) -> Option<NonNull<u8>> {
 }
 
 /// Free kernel memory
-pub fn kfree(ptr: NonNull<u8>, layout: Layout) {
-    KERNEL_ALLOCATOR.lock().deallocate(ptr, layout);
+/// Returns true if deallocation succeeded, false if the pointer was invalid
+/// (e.g., double-free, unaligned, or not from this allocator)
+pub fn kfree(ptr: NonNull<u8>, layout: Layout) -> bool {
+    KERNEL_ALLOCATOR.lock().deallocate(ptr, layout)
 }

@@ -13,8 +13,88 @@ pub fn init() {
 
     // Enable FPU/SIMD
     enable_fpu();
-
     crate::kprintln!("  FPU/SIMD enabled");
+
+    // Initialize GIC interrupt controller
+    init_gic();
+
+    // Initialize and start timer
+    init_timer();
+}
+
+/// Initialize the GIC interrupt controller
+fn init_gic() {
+    // Detect platform and use appropriate GIC addresses
+    // For QEMU virt machine
+    const GICD_QEMU: usize = 0x0800_0000;
+    const GICC_QEMU: usize = 0x0801_0000;
+
+    // For Raspberry Pi 4
+    const GICD_RPI4: usize = 0xFF84_1000;
+    const GICC_RPI4: usize = 0xFF84_2000;
+
+    // Try to detect which platform we're on
+    // For now, assume QEMU unless we detect RPi4
+    let (gicd, gicc) = if is_rpi4() {
+        (GICD_RPI4, GICC_RPI4)
+    } else {
+        (GICD_QEMU, GICC_QEMU)
+    };
+
+    interrupt::gic::init(gicd, gicc);
+
+    // Enable timer interrupt in GIC
+    // Physical timer IRQ is typically 30 (QEMU) or 27 (non-secure)
+    interrupt::gic::enable_irq(30);
+    interrupt::gic::enable_irq(27);
+
+    crate::kprintln!("  GIC initialized at GICD=0x{:x} GICC=0x{:x}", gicd, gicc);
+}
+
+/// Detect if we're running on Raspberry Pi 4
+fn is_rpi4() -> bool {
+    // Check MIDR_EL1 for Cortex-A72 (RPi4)
+    let midr: u64;
+    unsafe {
+        asm!("mrs {}, midr_el1", out(reg) midr);
+    }
+    // Cortex-A72 part number is 0xD08
+    let part = (midr >> 4) & 0xFFF;
+    part == 0xD08
+}
+
+/// Initialize the system timer
+fn init_timer() {
+    // Get timer frequency
+    let freq = read_timer_freq();
+    crate::kprintln!("  Timer frequency: {} Hz", freq);
+
+    // Set up timer for 10ms tick (100 Hz)
+    let tick_interval = freq / 100;
+
+    unsafe {
+        // Set timer compare value
+        asm!(
+            "msr cntp_tval_el0, {0}",
+            in(reg) tick_interval,
+        );
+
+        // Enable timer, unmask interrupt
+        asm!(
+            "mov x0, #1",
+            "msr cntp_ctl_el0, x0",
+            out("x0") _,
+        );
+    }
+
+    crate::kprintln!("  Timer started with {} ticks/interval", tick_interval);
+}
+
+/// Start the preemptive scheduler timer
+pub fn start_scheduler_timer() {
+    // Enable IRQ
+    enable_interrupts();
+    crate::kprintln!("  Scheduler timer enabled");
 }
 
 /// Enable FPU and SIMD
@@ -179,6 +259,37 @@ pub fn read_timer_freq() -> u64 {
         asm!("mrs {}, cntfrq_el0", out(reg) freq);
     }
     freq
+}
+
+/// RAII guard for disabling interrupts in critical sections
+/// Automatically restores interrupt state when dropped
+pub struct InterruptGuard {
+    was_enabled: bool,
+}
+
+impl InterruptGuard {
+    /// Create a new interrupt guard, disabling interrupts if they were enabled
+    pub fn new() -> Self {
+        let was_enabled = interrupts_enabled();
+        if was_enabled {
+            disable_interrupts();
+        }
+        Self { was_enabled }
+    }
+}
+
+impl Drop for InterruptGuard {
+    fn drop(&mut self) {
+        if self.was_enabled {
+            enable_interrupts();
+        }
+    }
+}
+
+impl Default for InterruptGuard {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Delay for approximately N cycles

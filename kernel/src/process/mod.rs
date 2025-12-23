@@ -20,7 +20,7 @@ static PID_COUNTER: AtomicU64 = AtomicU64::new(1);
 static TID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 /// Global process table
-static PROCESSES: RwLock<BTreeMap<Pid, Arc<Process>>> = RwLock::new(BTreeMap::new());
+pub static PROCESSES: RwLock<BTreeMap<Pid, Arc<Process>>> = RwLock::new(BTreeMap::new());
 
 /// Current process per CPU (simplified: single CPU for now)
 static CURRENT_PID: AtomicU64 = AtomicU64::new(0);
@@ -122,6 +122,80 @@ pub struct MemorySpace {
     pub stack_size: usize,
     /// Mapped regions
     pub regions: Vec<MemoryRegion>,
+}
+
+impl MemorySpace {
+    /// Clean up all memory resources
+    pub fn cleanup(&mut self) {
+        // Free all mapped physical pages and page tables
+        if self.page_table != 0 {
+            self.free_page_tables(self.page_table as usize, 0);
+            self.page_table = 0;
+        }
+
+        // Clear regions
+        self.regions.clear();
+
+        // Reset heap and stack
+        self.heap_start = 0;
+        self.heap_end = 0;
+        self.stack_top = 0;
+        self.stack_size = 0;
+    }
+
+    /// Recursively free page tables and mapped pages
+    fn free_page_tables(&self, table_addr: usize, level: usize) {
+        if table_addr == 0 {
+            return;
+        }
+
+        // Validate alignment
+        if table_addr % crate::memory::PAGE_SIZE != 0 {
+            return;
+        }
+
+        let table = table_addr as *const u64;
+
+        for i in 0..512 {
+            let entry = unsafe { *table.add(i) };
+
+            // Check if entry is present
+            if entry & 0x1 == 0 {
+                continue;
+            }
+
+            let next_addr = (entry & 0x0000_FFFF_FFFF_F000) as usize;
+
+            if level < 3 {
+                // This is a table entry, recurse
+                // Check if it's a block entry (level 1 or 2 can have 1GB or 2MB blocks)
+                let is_block = (entry & 0x2) == 0 && level > 0;
+
+                if is_block {
+                    // Block entry - free the physical block
+                    let frame = crate::memory::PhysFrame::containing_address(next_addr);
+                    crate::memory::deallocate_frame(frame);
+                } else {
+                    // Table entry - recurse
+                    self.free_page_tables(next_addr, level + 1);
+                }
+            } else {
+                // Level 3 - this is a page entry, free the page
+                let frame = crate::memory::PhysFrame::containing_address(next_addr);
+                crate::memory::deallocate_frame(frame);
+            }
+        }
+
+        // Free the table itself
+        let frame = crate::memory::PhysFrame::containing_address(table_addr);
+        crate::memory::deallocate_frame(frame);
+    }
+}
+
+impl Drop for MemorySpace {
+    fn drop(&mut self) {
+        self.cleanup();
+    }
 }
 
 /// A mapped memory region
@@ -328,6 +402,9 @@ impl Process {
 
     /// Exit the process
     pub fn exit(&self, code: i32) {
+        // Disable interrupts during exit to prevent race conditions
+        let _irq_guard = InterruptGuard::new();
+
         *self.exit_code.lock() = Some(code);
         self.set_state(ProcessState::Zombie(code));
 
@@ -336,8 +413,77 @@ impl Process {
             thread.state = ThreadState::Terminated;
         }
 
-        // TODO: Notify parent process
-        // TODO: Reparent children to init
+        // Close all file descriptors
+        self.files.lock().clear();
+
+        // Reparent children to init (PID 1)
+        let children: Vec<Pid> = self.children.lock().drain(..).collect();
+        if let Some(init) = get(Pid(1)) {
+            for child_pid in children {
+                if let Some(child) = get(child_pid) {
+                    // Note: Can't modify ppid directly since it's not Mutex-protected
+                    // In a real implementation, ppid should be Mutex<Pid>
+                    init.children.lock().push(child_pid);
+                }
+            }
+        }
+
+        // Free memory space (but keep page table for zombie state inspection)
+        // The actual cleanup happens when the process is reaped in wait()
+        // For now, we keep the zombie around so parent can wait() on it
+
+        // Notify parent process if waiting
+        if let Some(parent) = get(self.ppid) {
+            // Wake up parent if it's blocked waiting for children
+            let parent_state = parent.get_state();
+            if let ProcessState::Blocked(BlockReason::WaitChild) = parent_state {
+                parent.set_state(ProcessState::Ready);
+                // Add to scheduler if not already there
+                crate::scheduler::wake(parent.pid);
+            }
+        }
+
+        // Handle ptrace cleanup if this process was being traced
+        crate::ptrace::on_exit(self.pid);
+
+        // Handle futex cleanup
+        crate::futex::handle_thread_exit(self.pid);
+
+        crate::kinfo!("Process {} exited with code {}", self.pid.0, code);
+    }
+
+    /// Fully cleanup process resources (called when reaped)
+    pub fn reap(&self) {
+        // Clean up memory space
+        self.memory.lock().cleanup();
+
+        // Clear threads
+        self.threads.write().clear();
+
+        crate::kdebug!("Process {} reaped", self.pid.0);
+    }
+}
+
+/// RAII guard for disabling interrupts
+struct InterruptGuard {
+    was_enabled: bool,
+}
+
+impl InterruptGuard {
+    fn new() -> Self {
+        let was_enabled = crate::arch::interrupts_enabled();
+        if was_enabled {
+            crate::arch::disable_interrupts();
+        }
+        Self { was_enabled }
+    }
+}
+
+impl Drop for InterruptGuard {
+    fn drop(&mut self) {
+        if self.was_enabled {
+            crate::arch::enable_interrupts();
+        }
     }
 }
 
@@ -469,8 +615,13 @@ pub fn wait(pid: Option<Pid>) -> Result<(Pid, i32), &'static str> {
 
         if let Some(child) = get(child_pid) {
             if let ProcessState::Zombie(code) = child.get_state() {
-                // Remove child from process table
+                // Drop children lock before modifying
                 drop(children);
+
+                // Reap the child - clean up its resources
+                child.reap();
+
+                // Remove child from process table
                 PROCESSES.write().remove(&child_pid);
                 parent.children.lock().retain(|&p| p != child_pid);
                 return Ok((child_pid, code));
