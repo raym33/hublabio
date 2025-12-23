@@ -14,15 +14,21 @@ extern crate alloc;
 pub mod arch;
 pub mod boot;
 pub mod console;
+pub mod dev;
 pub mod drivers;
+pub mod exec;
 pub mod fs;
 pub mod init;
 pub mod ipc;
 pub mod memory;
 pub mod net;
+pub mod pipe;
 pub mod process;
 pub mod scheduler;
+pub mod signal;
 pub mod syscall;
+pub mod time;
+pub mod tty;
 pub mod vfs;
 
 use core::panic::PanicInfo;
@@ -172,6 +178,34 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Initialize syscall interface
     kprintln!("[BOOT] Setting up syscall interface...");
     syscall::init();
+
+    // Initialize time subsystem
+    kprintln!("[BOOT] Initializing time subsystem...");
+    time::init();
+
+    // Initialize signal handling
+    kprintln!("[BOOT] Setting up signal handling...");
+    signal::init();
+
+    // Initialize pipes
+    kprintln!("[BOOT] Initializing pipes...");
+    pipe::init();
+
+    // Initialize TTY subsystem
+    kprintln!("[BOOT] Setting up TTY subsystem...");
+    tty::init();
+
+    // Initialize device nodes
+    kprintln!("[BOOT] Creating device nodes...");
+    dev::init();
+
+    // Initialize exec subsystem
+    kprintln!("[BOOT] Setting up exec subsystem...");
+    exec::init();
+
+    // Initialize hardware drivers
+    kprintln!("[BOOT] Initializing hardware drivers...");
+    drivers::init();
 
     kprintln!();
     kprintln!("[BOOT] Kernel initialization complete!");

@@ -1,6 +1,7 @@
 //! AArch64 (ARM64) specific code
 
 pub mod exception;
+pub mod interrupt;
 pub mod mmu;
 
 use core::arch::asm;
