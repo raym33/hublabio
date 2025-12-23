@@ -2,15 +2,18 @@
 
 <div align="center">
 
-**The First AI-Native Operating System**
+**An AI-Native Operating System**
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+> **PROTOTYPE STATUS**: This is an experimental OS in early development.
+> See [PROTOTYPE.md](docs/PROTOTYPE.md) for detailed status, examples, and limitations.
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-ARM64%20|%20RISC--V-green.svg)](#supported-hardware)
-[![AI](https://img.shields.io/badge/AI-Native-purple.svg)](#ai-first-architecture)
+[![Status](https://img.shields.io/badge/status-Prototype-orange.svg)](docs/PROTOTYPE.md)
 
-**AI at the kernel level** | **Run on smartphones & Raspberry Pi** | **Distributed inference** | **Voice-first interface**
+**AI in the kernel** | **Runs on Raspberry Pi & Smartphones** | **Distributed inference** | **Voice-first**
 
-[Quick Start](#quick-start) | [Architecture](#architecture) | [Hardware](#supported-hardware) | [Documentation](docs/)
+[Quick Start](#quick-start) | [Examples](#examples) | [Architecture](#architecture) | [Full Documentation](docs/PROTOTYPE.md)
 
 </div>
 
@@ -18,7 +21,7 @@
 
 ## What is HubLab IO?
 
-HubLab IO is a **new operating system built from scratch** with AI as a first-class citizen at every layer. Unlike traditional OSes that bolt on AI features, HubLab IO integrates intelligence into the kernel, scheduler, filesystem, and shell.
+HubLab IO is an **experimental operating system prototype** built from scratch with AI as a first-class citizen at every layer. Unlike traditional OSes that run AI as applications, HubLab IO integrates intelligence into the kernel, scheduler, filesystem, and shell.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -700,9 +703,111 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
+## Current Status
+
+> **This is a prototype** - not ready for production use.
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Bootloader | Working | ARM64 assembly + Rust early init |
+| Kernel Core | Working | Memory, IPC, VFS basics |
+| AI Scheduler | Structure only | Needs trained model |
+| AI Runtime | Working | GGUF loading, inference |
+| Shell (TUI) | Working | Basic commands, themes |
+| Shell (Voice) | Not started | Planned for future |
+| Real Hardware | Not tested | QEMU only |
+
+**What works today:**
+- Boot in QEMU emulator
+- Basic shell commands (help, version, theme, clear, exit)
+- AI inference engine (GGUF model loading)
+- Tokenization, sampling, quantization
+- IPC message passing
+- Memory management
+
+**What doesn't work yet:**
+- Real hardware boot (only QEMU tested)
+- Persistent storage
+- Networking
+- GUI
+- Voice interface
+
+See [PROTOTYPE.md](docs/PROTOTYPE.md) for complete details.
+
+---
+
+## Examples
+
+### Shell Usage
+
+```bash
+# After booting
+hublab> help
+# Shows available commands
+
+hublab> version
+HubLab IO Shell v0.1.0
+
+hublab> theme dracula
+Theme set to: dracula
+
+# AI query (when model is loaded)
+hublab> ?explain recursion
+AI: Recursion is when a function calls itself...
+```
+
+### Building an App (Rust SDK)
+
+```rust
+use hublabio_sdk::prelude::*;
+
+fn main() -> Result<()> {
+    // System info
+    let mem = System::memory_info();
+    println!("RAM: {} MB", mem.total / (1024 * 1024));
+
+    // AI inference
+    let ai = AiClient::connect()?;
+    let response = ai.generate("Hello!")?;
+    println!("{}", response);
+
+    Ok(())
+}
+```
+
+### AI Inference
+
+```rust
+use runtime::ai::inference::InferenceEngine;
+
+let mut engine = InferenceEngine::new();
+engine.load_model("/models/qwen2-0.5b-q4.gguf")?;
+
+let output = engine.generate("Write a haiku:", Default::default(), 64)?;
+println!("{}", output);
+```
+
+### IPC Communication
+
+```rust
+use kernel::ipc::{create_channel, register_endpoint};
+
+// Create service
+let (_, server) = create_channel();
+register_endpoint("io.hublab.myservice", server.channel_id())?;
+
+// Handle messages
+while let Some(msg) = server.try_receive() {
+    println!("Got: {:?}", msg);
+    server.send(0xFFFF_0000, b"OK")?;
+}
+```
+
+---
+
 ## License
 
-Apache License 2.0 - See [LICENSE](LICENSE) for details.
+MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
