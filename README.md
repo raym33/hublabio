@@ -698,6 +698,11 @@ make PLATFORM=visionfive2 CROSS_COMPILE=riscv64-linux-gnu- all
 - [x] ELF64 binary execution
 - [x] System timers (ARM generic timer)
 - [x] GIC interrupt controller
+- [x] Kernel panic handler with stack traces
+- [x] ICMP protocol (ping support)
+- [x] TCP congestion control (RFC 6298)
+- [x] ELF relocations and dynamic linking
+- [x] Block cache with LRU eviction
 
 ### In Progress
 - [ ] Real hardware testing on Raspberry Pi
@@ -779,8 +784,13 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 | **ELF Execution** | Complete | ~300 | ELF64 loading, argc/argv/envp setup |
 | **System Timers** | Complete | ~400 | ARM generic timer, callbacks |
 | **GIC Controller** | Complete | ~400 | Interrupt controller, IRQ handling |
+| **Panic Handler** | Complete | ~500 | Stack traces, symbol resolution, register dump |
+| **ICMP Protocol** | Complete | ~400 | Ping, dest unreachable, time exceeded |
+| **TCP Congestion** | Complete | ~200 | Slow start, congestion avoidance, RFC 6298 RTT |
+| **ELF Relocations** | Complete | ~500 | AArch64 relocations, dynamic linking |
+| **Block Cache** | Complete | ~300 | LRU eviction, read/write caching |
 
-**Total: ~16,000+ lines of Rust kernel code**
+**Total: ~18,500+ lines of Rust kernel code**
 
 ### System Components Status
 
@@ -838,6 +848,12 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - ELF64 binary loading and execution
 - System timers with ARM generic timer
 - GIC interrupt controller for ARM64
+- Kernel panic handler with stack traces and symbol resolution
+- ICMP protocol (ping, destination unreachable, time exceeded)
+- TCP congestion control (slow start, congestion avoidance)
+- TCP retransmission with RFC 6298 RTT estimation
+- ELF64 relocations for position independent executables
+- Block cache with LRU eviction for improved I/O
 - Boot in QEMU emulator
 
 **What doesn't work yet:**
