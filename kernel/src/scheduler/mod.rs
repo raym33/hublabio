@@ -409,6 +409,9 @@ pub fn schedule() {
         return;
     }
 
+    let current_pid = CURRENT_PID.load(Ordering::Acquire);
+    let current_task = crate::task::current();
+
     let next_pid = {
         let mut sched = SCHEDULER.write();
         sched.as_mut().and_then(|s| {
@@ -418,13 +421,53 @@ pub fn schedule() {
     };
 
     if let Some(pid) = next_pid {
-        CURRENT_PID.store(pid, Ordering::Release);
-        // Context switch happens in process module
+        // Check if we're switching to a different process
+        if pid != current_pid {
+            CURRENT_PID.store(pid, Ordering::Release);
+
+            // Perform actual context switch
+            if let Some(from_task) = current_task {
+                if let Some(to_task) = get_task_for_pid(pid) {
+                    unsafe {
+                        crate::task::context_switch(&from_task, &to_task);
+                    }
+                    return;
+                }
+            }
+
+            // No from task (first run) - just set up the new task
+            if let Some(to_task) = get_task_for_pid(pid) {
+                crate::task::set_current(&to_task);
+
+                // Switch to the task's address space
+                let memory = to_task.process.memory.lock();
+                if memory.page_table != 0 {
+                    unsafe {
+                        core::arch::asm!(
+                            "msr ttbr0_el1, {0}",
+                            "isb",
+                            in(reg) memory.page_table,
+                        );
+                    }
+                }
+            }
+        }
     } else {
         CURRENT_PID.store(0, Ordering::Release);
         // Idle - wait for interrupt
         crate::arch::halt();
     }
+}
+
+/// Get task for a given PID
+fn get_task_for_pid(pid: Pid) -> Option<alloc::sync::Arc<crate::task::Task>> {
+    // Look up the task associated with this process
+    // In our design, we use the process's main task
+    if let Some(process) = crate::process::get(pid) {
+        let main_tid = process.main_tid;
+        return crate::task::get(crate::task::TaskId(main_tid.0));
+    }
+    None
 }
 
 /// Main scheduler loop (called from kernel_main, never returns)

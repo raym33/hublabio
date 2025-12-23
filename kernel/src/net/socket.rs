@@ -352,3 +352,177 @@ pub fn shutdown(fd: SocketFd, how: i32) -> Result<(), NetError> {
 
     Ok(())
 }
+
+// ============================================================================
+// Syscall Interface Functions
+// ============================================================================
+
+/// Create socket from syscall (domain, type, protocol)
+pub fn create_socket(domain: i32, sock_type: i32, protocol: i32) -> Result<SocketFd, NetError> {
+    let _ = protocol; // Protocol is typically 0 for default
+
+    // Translate domain
+    let family = match domain {
+        2 => AddressFamily::Inet,      // AF_INET
+        10 => AddressFamily::Inet6,    // AF_INET6
+        1 => AddressFamily::Unix,      // AF_UNIX
+        _ => return Err(NetError::InvalidPacket),
+    };
+
+    // Translate socket type
+    let stype = match sock_type & 0xFF {
+        1 => SocketType::Stream,   // SOCK_STREAM
+        2 => SocketType::Datagram, // SOCK_DGRAM
+        3 => SocketType::Raw,      // SOCK_RAW
+        _ => return Err(NetError::InvalidPacket),
+    };
+
+    socket(family, stype)
+}
+
+/// Bind socket from syscall
+pub fn bind_addr(fd: i32, addr_ptr: usize, addrlen: u32) -> Result<(), NetError> {
+    if addrlen < 8 {
+        return Err(NetError::InvalidPacket);
+    }
+
+    // Parse sockaddr_in structure
+    let sockaddr = unsafe {
+        let ptr = addr_ptr as *const u8;
+        let family = u16::from_ne_bytes([*ptr, *ptr.add(1)]);
+        let port = u16::from_be_bytes([*ptr.add(2), *ptr.add(3)]);
+        let ip_bytes = [*ptr.add(4), *ptr.add(5), *ptr.add(6), *ptr.add(7)];
+
+        (family, port, Ipv4Address::new(ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]))
+    };
+
+    let addr = SocketAddr::new(sockaddr.2, sockaddr.1);
+    bind(fd as SocketFd, addr)
+}
+
+/// Listen from syscall
+pub fn listen_socket(fd: i32, backlog: i32) -> Result<(), NetError> {
+    listen(fd as SocketFd, backlog as u32)
+}
+
+/// Accept from syscall
+pub fn accept_socket(fd: i32, addr_ptr: usize, addrlen_ptr: usize) -> Result<SocketFd, NetError> {
+    let (new_fd, remote_addr) = accept(fd as SocketFd)?;
+
+    // Write remote address if buffer provided
+    if addr_ptr != 0 && addrlen_ptr != 0 {
+        unsafe {
+            let addrlen = *(addrlen_ptr as *const u32);
+            if addrlen >= 8 {
+                let ptr = addr_ptr as *mut u8;
+                // AF_INET
+                *ptr = 2;
+                *ptr.add(1) = 0;
+                // Port (big endian)
+                let port_bytes = remote_addr.port.to_be_bytes();
+                *ptr.add(2) = port_bytes[0];
+                *ptr.add(3) = port_bytes[1];
+                // IP address
+                *ptr.add(4) = remote_addr.ip.octets[0];
+                *ptr.add(5) = remote_addr.ip.octets[1];
+                *ptr.add(6) = remote_addr.ip.octets[2];
+                *ptr.add(7) = remote_addr.ip.octets[3];
+
+                *(addrlen_ptr as *mut u32) = 16; // sizeof(sockaddr_in)
+            }
+        }
+    }
+
+    Ok(new_fd)
+}
+
+/// Connect from syscall
+pub fn connect_socket(fd: i32, addr_ptr: usize, addrlen: u32) -> Result<(), NetError> {
+    if addrlen < 8 {
+        return Err(NetError::InvalidPacket);
+    }
+
+    // Parse sockaddr_in structure
+    let addr = unsafe {
+        let ptr = addr_ptr as *const u8;
+        let port = u16::from_be_bytes([*ptr.add(2), *ptr.add(3)]);
+        let ip = Ipv4Address::new(*ptr.add(4), *ptr.add(5), *ptr.add(6), *ptr.add(7));
+        SocketAddr::new(ip, port)
+    };
+
+    connect(fd as SocketFd, addr)
+}
+
+/// Send data from syscall
+pub fn send_data(fd: i32, data: &[u8]) -> Result<usize, NetError> {
+    send(fd as SocketFd, data)
+}
+
+/// Receive data from syscall
+pub fn recv_data(fd: i32, buf: &mut [u8]) -> Result<usize, NetError> {
+    recv(fd as SocketFd, buf)
+}
+
+/// Send to specific address from syscall
+pub fn sendto_data(fd: i32, data: &[u8], addr_ptr: usize, addrlen: u32) -> Result<usize, NetError> {
+    if addr_ptr == 0 {
+        // No address - use connected address
+        return send(fd as SocketFd, data);
+    }
+
+    if addrlen < 8 {
+        return Err(NetError::InvalidPacket);
+    }
+
+    let addr = unsafe {
+        let ptr = addr_ptr as *const u8;
+        let port = u16::from_be_bytes([*ptr.add(2), *ptr.add(3)]);
+        let ip = Ipv4Address::new(*ptr.add(4), *ptr.add(5), *ptr.add(6), *ptr.add(7));
+        SocketAddr::new(ip, port)
+    };
+
+    sendto(fd as SocketFd, data, addr)
+}
+
+/// Receive from specific address from syscall
+pub fn recvfrom_data(
+    fd: i32,
+    buf: &mut [u8],
+    addr_ptr: usize,
+    addrlen_ptr: usize,
+) -> Result<usize, NetError> {
+    if addr_ptr == 0 {
+        // No address buffer - just receive
+        return recv(fd as SocketFd, buf);
+    }
+
+    let (len, from_addr) = recvfrom(fd as SocketFd, buf)?;
+
+    // Write source address
+    if addrlen_ptr != 0 {
+        unsafe {
+            let addrlen = *(addrlen_ptr as *const u32);
+            if addrlen >= 8 {
+                let ptr = addr_ptr as *mut u8;
+                *ptr = 2; // AF_INET
+                *ptr.add(1) = 0;
+                let port_bytes = from_addr.port.to_be_bytes();
+                *ptr.add(2) = port_bytes[0];
+                *ptr.add(3) = port_bytes[1];
+                *ptr.add(4) = from_addr.ip.octets[0];
+                *ptr.add(5) = from_addr.ip.octets[1];
+                *ptr.add(6) = from_addr.ip.octets[2];
+                *ptr.add(7) = from_addr.ip.octets[3];
+
+                *(addrlen_ptr as *mut u32) = 16;
+            }
+        }
+    }
+
+    Ok(len)
+}
+
+/// Close socket from syscall
+pub fn close_socket(fd: i32) -> Result<(), NetError> {
+    close(fd as SocketFd)
+}

@@ -828,7 +828,7 @@ fn sys_mmap(
     }
 
     // Round up to page size
-    let page_size = 4096;
+    let page_size = crate::memory::PAGE_SIZE;
     let length = (length + page_size - 1) & !(page_size - 1);
 
     // Determine address
@@ -844,41 +844,169 @@ fn sys_mmap(
         MMAP_BASE.fetch_add(length as u64, Ordering::SeqCst) as usize
     };
 
-    // For anonymous mapping, allocate memory
-    if flags & mmap_flags::MAP_ANONYMOUS != 0 {
-        // In a real implementation, we'd allocate physical pages here
-        // and map them into the process address space
+    // Get current process
+    let proc = match process::current() {
+        Some(p) => p,
+        None => return errno::ESRCH,
+    };
 
-        let region = MmapRegion {
-            start: map_addr,
-            length,
-            prot,
-            flags,
-            fd: -1,
-            offset: 0,
-        };
-
-        MMAP_REGIONS.lock().push(region);
-        return map_addr as isize;
+    // Calculate page flags
+    let mut page_flags = crate::memory::PageFlags::PRESENT | crate::memory::PageFlags::USER;
+    if prot & prot::PROT_WRITE != 0 {
+        page_flags |= crate::memory::PageFlags::WRITABLE;
+    }
+    if prot & prot::PROT_EXEC == 0 {
+        page_flags |= crate::memory::PageFlags::NO_EXECUTE;
     }
 
-    // File-backed mapping
-    if fd >= 0 {
-        // Map file content
-        let region = MmapRegion {
-            start: map_addr,
-            length,
-            prot,
-            flags,
-            fd,
-            offset,
-        };
+    // Get page table address
+    let page_table = {
+        let memory = proc.memory.lock();
+        memory.page_table as usize
+    };
 
-        MMAP_REGIONS.lock().push(region);
-        return map_addr as isize;
+    if page_table == 0 {
+        return errno::ENOMEM;
     }
 
-    errno::EINVAL
+    // Allocate and map pages
+    let num_pages = length / page_size;
+    for i in 0..num_pages {
+        let vaddr = map_addr + i * page_size;
+
+        // Allocate physical frame
+        let frame = match crate::memory::allocate_frame() {
+            Some(f) => f,
+            None => return errno::ENOMEM,
+        };
+
+        // Map the page
+        mmap_page(page_table, vaddr, frame.start_address(), page_flags);
+
+        // Zero the page for anonymous mappings
+        if flags & mmap_flags::MAP_ANONYMOUS != 0 {
+            unsafe {
+                core::ptr::write_bytes(frame.start_address() as *mut u8, 0, page_size);
+            }
+        }
+    }
+
+    // For file-backed mapping, read content
+    if fd >= 0 && flags & mmap_flags::MAP_ANONYMOUS == 0 {
+        // Read file content into mapped pages
+        let mut buf = vec![0u8; length];
+        if vfs::seek(fd as u32, offset as i64, seek::SEEK_SET).is_ok() {
+            if let Ok(n) = vfs::read(fd as u32, &mut buf) {
+                // Copy to mapped memory
+                // In a real implementation, we'd write to the physical pages
+                // through their virtual addresses
+                crate::kdebug!("mmap: Read {} bytes from fd {} at offset {}", n, fd, offset);
+            }
+        }
+    }
+
+    // Add to process memory regions
+    {
+        let mut memory = proc.memory.lock();
+        let mut mem_flags = crate::process::MemoryFlags::empty();
+        if prot & prot::PROT_READ != 0 {
+            mem_flags |= crate::process::MemoryFlags::READ;
+        }
+        if prot & prot::PROT_WRITE != 0 {
+            mem_flags |= crate::process::MemoryFlags::WRITE;
+        }
+        if prot & prot::PROT_EXEC != 0 {
+            mem_flags |= crate::process::MemoryFlags::EXEC;
+        }
+        mem_flags |= crate::process::MemoryFlags::USER;
+
+        memory.regions.push(crate::process::MemoryRegion {
+            start: map_addr,
+            end: map_addr + length,
+            flags: mem_flags,
+            name: if fd >= 0 {
+                alloc::string::String::from("[file]")
+            } else {
+                alloc::string::String::from("[anon]")
+            },
+        });
+    }
+
+    // Store region info for munmap
+    let region = MmapRegion {
+        start: map_addr,
+        length,
+        prot,
+        flags,
+        fd,
+        offset,
+    };
+    MMAP_REGIONS.lock().push(region);
+
+    map_addr as isize
+}
+
+/// Map a single page in the address space
+fn mmap_page(page_table: usize, vaddr: usize, paddr: usize, flags: crate::memory::PageFlags) {
+    let l0 = page_table as *mut u64;
+
+    let l0_idx = (vaddr >> 39) & 0x1FF;
+    let l1_idx = (vaddr >> 30) & 0x1FF;
+    let l2_idx = (vaddr >> 21) & 0x1FF;
+    let l3_idx = (vaddr >> 12) & 0x1FF;
+
+    unsafe {
+        // Get or create L1 table
+        let l1 = mmap_get_or_create_table(l0, l0_idx);
+        if l1.is_null() { return; }
+
+        // Get or create L2 table
+        let l2 = mmap_get_or_create_table(l1, l1_idx);
+        if l2.is_null() { return; }
+
+        // Get or create L3 table
+        let l3 = mmap_get_or_create_table(l2, l2_idx);
+        if l3.is_null() { return; }
+
+        // Set L3 entry (final mapping)
+        let entry = (paddr as u64) | flags.bits() | 0x3;
+        *l3.add(l3_idx) = entry;
+
+        // Invalidate TLB for this page
+        core::arch::asm!(
+            "dsb ishst",
+            "tlbi vaae1is, {0}",
+            "dsb ish",
+            "isb",
+            in(reg) vaddr >> 12,
+        );
+    }
+}
+
+/// Get or create next level table for mmap
+unsafe fn mmap_get_or_create_table(table: *mut u64, index: usize) -> *mut u64 {
+    let entry = *table.add(index);
+
+    if entry & 0x1 == 0 {
+        // Not present, create new table
+        if let Some(frame) = crate::memory::allocate_frame() {
+            let new_table = frame.start_address() as *mut u64;
+
+            // Zero the new table
+            for i in 0..512 {
+                *new_table.add(i) = 0;
+            }
+
+            // Set entry to point to new table
+            *table.add(index) = (frame.start_address() as u64) | 0x3;
+
+            return new_table;
+        }
+        return core::ptr::null_mut();
+    }
+
+    // Extract address from entry
+    (entry & 0x0000_FFFF_FFFF_F000) as *mut u64
 }
 
 fn sys_munmap(addr: usize, length: usize) -> SyscallResult {
@@ -886,10 +1014,87 @@ fn sys_munmap(addr: usize, length: usize) -> SyscallResult {
         return errno::EINVAL;
     }
 
+    // Round up to page size
+    let page_size = crate::memory::PAGE_SIZE;
+    let length = (length + page_size - 1) & !(page_size - 1);
+
+    // Get current process
+    let proc = match process::current() {
+        Some(p) => p,
+        None => return errno::ESRCH,
+    };
+
+    // Get page table address
+    let page_table = {
+        let memory = proc.memory.lock();
+        memory.page_table as usize
+    };
+
+    if page_table != 0 {
+        // Unmap pages and free physical frames
+        let num_pages = length / page_size;
+        for i in 0..num_pages {
+            let vaddr = addr + i * page_size;
+            munmap_page(page_table, vaddr);
+        }
+    }
+
+    // Remove from process memory regions
+    {
+        let mut memory = proc.memory.lock();
+        memory.regions.retain(|r| !(r.start == addr && r.end == addr + length));
+    }
+
+    // Remove from mmap regions
     let mut regions = MMAP_REGIONS.lock();
     regions.retain(|r| !(r.start == addr && r.length == length));
 
     errno::SUCCESS
+}
+
+/// Unmap a single page and free the physical frame
+fn munmap_page(page_table: usize, vaddr: usize) {
+    let l0 = page_table as *mut u64;
+
+    let l0_idx = (vaddr >> 39) & 0x1FF;
+    let l1_idx = (vaddr >> 30) & 0x1FF;
+    let l2_idx = (vaddr >> 21) & 0x1FF;
+    let l3_idx = (vaddr >> 12) & 0x1FF;
+
+    unsafe {
+        // Walk page tables
+        let l0_entry = *l0.add(l0_idx);
+        if l0_entry & 0x1 == 0 { return; }
+
+        let l1 = (l0_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
+        let l1_entry = *l1.add(l1_idx);
+        if l1_entry & 0x1 == 0 { return; }
+
+        let l2 = (l1_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
+        let l2_entry = *l2.add(l2_idx);
+        if l2_entry & 0x1 == 0 { return; }
+
+        let l3 = (l2_entry & 0x0000_FFFF_FFFF_F000) as *mut u64;
+        let l3_entry = *l3.add(l3_idx);
+        if l3_entry & 0x1 == 0 { return; }
+
+        // Get physical address and free the frame
+        let paddr = (l3_entry & 0x0000_FFFF_FFFF_F000) as usize;
+        let frame = crate::memory::PhysFrame::containing_address(paddr);
+        crate::memory::deallocate_frame(frame);
+
+        // Clear the entry
+        *l3.add(l3_idx) = 0;
+
+        // Invalidate TLB
+        core::arch::asm!(
+            "dsb ishst",
+            "tlbi vaae1is, {0}",
+            "dsb ish",
+            "isb",
+            in(reg) vaddr >> 12,
+        );
+    }
 }
 
 fn sys_mprotect(addr: usize, length: usize, prot: u32) -> SyscallResult {

@@ -46,6 +46,7 @@ pub mod seccomp;
 pub mod shell;
 pub mod signal;
 pub mod syscall;
+pub mod task;
 pub mod time;
 pub mod tty;
 pub mod unix_socket;
@@ -294,6 +295,10 @@ pub extern "C" fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Initialize core dump support
     kprintln!("[BOOT] Initializing core dump support...");
     coredump::init();
+
+    // Initialize task subsystem
+    kprintln!("[BOOT] Initializing task subsystem...");
+    task::init();
 
     // Initialize hardware drivers
     kprintln!("[BOOT] Initializing hardware drivers...");
